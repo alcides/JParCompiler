@@ -1,20 +1,17 @@
 package aeminium.jparcompiler.templates;
 
-import spoon.template.StatementTemplate;
 import spoon.template.Local;
 import spoon.template.Parameter;
 import aeminium.runtime.futures.Future;
 
-public class FuturifyTemplate extends StatementTemplate {
+public class FuturifyTemplate extends spoon.template.BlockTemplate {
 	
 	@Parameter()
 	Class<?> _Type_;
 	
 	@Parameter()
 	String _code_;
-	
 
-	
 	@Local
 	public FuturifyTemplate(Class<?> t, String c) {
 		_Type_ = t;
@@ -22,11 +19,11 @@ public class FuturifyTemplate extends StatementTemplate {
 	}
 
 	@Override
-	@SuppressWarnings("unused")
-	public void statement() throws Throwable {
+	public void block() throws Throwable {
 		Future<_Type_> _code_ = new Future<_Type_>((t) -> null);
 		_Type_ a = _code_.get();
 	}
+
 }
 
 interface _Type_ {
