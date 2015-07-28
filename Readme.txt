@@ -1,8 +1,7 @@
-AeminiumGPU Compiler
+JPar Compiler
 
-This is a Java Source to Source compiler that located special lambda functions and translates
-them to OpenCL. The generated code will be able to be automatically executed on the GPU by the
-AeminiumGPU runtime (http://github.com/AEminium/AeminiumGPU/), where the API is defined.
+This is a Java Source to Source compiler that automatically parallelizes Java code. The generated code runs on top of the Aeminium Runtime (http://github.com/AEminium/AeminiumRuntime/).
+
 The compiler uses the Spoon Compiler Toolkit (http://spoon.gforge.inria.fr/).
 
 This is part of the Æminium Project (http://aeminium.dei.uc.pt)
@@ -13,7 +12,7 @@ Alcides Fonseca <amaf@dei.uc.pt>
 How to execute:
 
 1) Clone (or download) the project.
-2) Make sure the AeminiumGPU project is at the same level as this one.
+2) Make sure the AeminiumRuntime and AeminiumFutures projects are at the same level as this one.
 3) Add your Java code to the src folder.
 4) Define the main-class in the build.xml file.
 5) Execute `ant run`
