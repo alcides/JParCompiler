@@ -1,0 +1,59 @@
+package aeminium.jparcompiler.model;
+
+import java.util.ArrayList;
+
+import spoon.reflect.declaration.CtElement;
+
+public class PermissionSet extends ArrayList<Permission> {
+
+	public boolean isComplete = false;
+	private static final long serialVersionUID = 1L;
+	
+	public PermissionSet merge(PermissionSet a2) {
+		PermissionSet b = this.copy();
+		if (a2 != null) {
+			for (Permission p : a2) {
+				if (!b.contains(p))
+					b.add(p);
+			}
+		}
+		return b;
+	}
+
+	public PermissionSet copy() {
+		PermissionSet p2 = new PermissionSet();
+		for (Permission p : this)
+			p2.add(p);
+		return p2;
+	}
+
+	public void printSet() {
+		for (Permission p: this)
+			System.out.println(p);
+	}
+
+	public void removeTarget(CtElement e) {
+		PermissionSet rm = new PermissionSet();
+		for (Permission p: this) {
+			if (p.target == e) {
+				rm.add(p);
+			}
+		}
+		for (Permission p : rm) {
+			this.remove(p);
+		}
+	}
+
+	public void removeReturn() {
+		PermissionSet rm = new PermissionSet();
+		for (Permission p: this) {
+			if (p.ret) {
+				rm.add(p);
+			}
+		}
+		for (Permission p : rm) {
+			this.remove(p);
+		}
+	}
+	
+}
