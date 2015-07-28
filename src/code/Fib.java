@@ -3,7 +3,7 @@ package code;
 
 public class Fib {
 	public static void main(String[] args) {
-		int f = fib(30);
+		int f = fib(42);
 		System.out.println(f);
 	}
 	
