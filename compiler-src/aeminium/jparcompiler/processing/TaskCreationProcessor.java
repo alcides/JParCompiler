@@ -6,6 +6,7 @@ import java.util.HashMap;
 import spoon.processing.AbstractProcessor;
 import spoon.reflect.code.CtBlock;
 import spoon.reflect.code.CtExpression;
+import spoon.reflect.code.CtIf;
 import spoon.reflect.code.CtInvocation;
 import spoon.reflect.code.CtLambda;
 import spoon.reflect.code.CtLiteral;
@@ -13,9 +14,11 @@ import spoon.reflect.code.CtLocalVariable;
 import spoon.reflect.code.CtReturn;
 import spoon.reflect.code.CtStatement;
 import spoon.reflect.code.CtStatementList;
+import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.declaration.CtMethod;
+import spoon.reflect.declaration.CtParameter;
 import spoon.reflect.declaration.ModifierKind;
 import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtExecutableReference;
@@ -36,21 +39,50 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		super.init();
 		database = AccessPermissionsProcessor.database;
 	}
+	
+	public boolean isSafe(CtElement el) {
+		CtMethod<?> m;
+		if (el instanceof CtMethod) {
+			m = (CtMethod<?>) el;
+		} else {
+			m = el.getParent(CtMethod.class);
+		}
+		if (m == null) return true;
+		return m.getSimpleName().startsWith(SeqMethodProcessor.SEQ_PREFIX);
+	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public void process(CtElement element) {
+		if (isSafe(element)) return;
+		Factory factory = element.getFactory();
 		if (element instanceof CtMethod) {
 			CtMethod<?> m = (CtMethod<?>) element;
 			if (m.getSimpleName().equals("main") && m.hasModifier(ModifierKind.STATIC) && m.hasModifier(ModifierKind.PUBLIC)) {
-				
 				// Surround main method with inits and shutdowns.
-				Factory factory = m.getFactory();
 				CtInvocation<?> c = factory.Code().createCodeSnippetStatement("aeminium.runtime.futures.RuntimeManager.init();").compile();
 				m.getBody().insertBegin(c);
 				
 				CtInvocation<?> c2 = factory.Code().createCodeSnippetStatement("aeminium.runtime.futures.RuntimeManager.shutdown();").compile();
 				m.getBody().insertEnd(c2);
+			} else {
+				// create if parallelize
+				CtIf i = factory.Core().createIf();
+				CtExpression<?> inv = factory.Code().createCodeSnippetExpression("aeminium.runtime.futures.RuntimeManager.shouldSeq()").compile();
+				i.setCondition((CtExpression<Boolean>) inv);
 				
+				CtClass<?> cl = m.getParent(CtClass.class);
+				CtExecutableReference<?> ref = factory.Executable().createReference(cl.getMethodsByName(SeqMethodProcessor.SEQ_PREFIX + m.getSimpleName()).get(0));
+				
+				ArrayList<CtExpression<?>> args = new ArrayList<CtExpression<?>>();
+				for (CtParameter<?> p : m.getParameters()) {
+					args.add(factory.Code().createVariableRead(factory.Method().createParameterReference(p), m.hasModifier(ModifierKind.STATIC)));
+				}
+				
+				CtInvocation<?> body = factory.Code().createInvocation(null, ref, args);
+				i.setThenStatement(body);
+				
+				m.getBody().insertBegin(i);
 			}
 			
 		}
@@ -79,14 +111,13 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		Factory factory = element.getFactory();
 		
 		CtTypeReference<?> t = element.getType();
-		System.out.println(element);
 		String id = "aeminium_task_" + (counter++);
 		
 		element.getFactory().getEnvironment().setComplianceLevel(8);
 
 		if (t.isPrimitive()) t = t.box();
 		
-		CtLocalVariable<?> c = factory.Code().createCodeSnippetStatement("aeminium.runtime.futures.Future<" + t.getQualifiedName() + "> " + id + " = new aeminium.runtime.futures.Future<" + t.getQualifiedName() + ">( (t) -> null);").compile();
+		CtLocalVariable<?> c = factory.Code().createCodeSnippetStatement("aeminium.runtime.futures.Future<" + t.getQualifiedName() + "> " + id + " = new aeminium.runtime.futures.Future<" + t.getQualifiedName() + ">( (aeminium_runtime_tmp) -> null);").compile();
 		
 		// Replace null by current element
 		CtLiteral<E> lit = (CtLiteral<E>) c.getElements(new AbstractFilter<CtLiteral<?>>(CtLiteral.class) {

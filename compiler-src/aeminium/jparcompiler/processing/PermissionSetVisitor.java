@@ -170,12 +170,14 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 
 	public <T, A extends T> void visitCtAssignment(
 			CtAssignment<T, A> assignement) {
-		for (CtTypeReference<?> ref : assignement.getTypeCasts()) {
-			scan(ref);
-		}
+		PermissionSet set = new PermissionSet();
 		scan(assignement.getAssigned());
-		// TODO - WRITE
+		if (tmp != null) {
+			tmp.type = PermissionType.READ;
+			set.add(tmp);
+		}
 		scan(assignement.getAssignment());
+		setPermissionSet(assignement, set.merge(getPermissionSet(assignement.getAssignment())));
 	}
 
 	public <T> void visitCtBinaryOperator(CtBinaryOperator<T> operator) {

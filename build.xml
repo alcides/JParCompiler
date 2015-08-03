@@ -50,6 +50,7 @@
 			<sourceSet dir="${src.dir}" />
 			<templateset dir="${compiler.src.dir}/aeminium/jparcompiler/templates" />
 			<processor type="aeminium.jparcompiler.processing.AccessPermissionsProcessor" />
+			<processor type="aeminium.jparcompiler.processing.SeqMethodProcessor" />
 			<processor type="aeminium.jparcompiler.processing.TaskCreationProcessor" />
 		</spoon>
 		<delete dir="${spooned.dir}/aeminium/jparcompiler"/>

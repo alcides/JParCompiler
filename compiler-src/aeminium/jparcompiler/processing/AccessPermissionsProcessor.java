@@ -19,7 +19,7 @@ public class AccessPermissionsProcessor<T> extends AbstractProcessor<CtMethod<T>
 		if (meth.getParent(CtClass.class).getSimpleName().equals("FuturifyTemplate")) return;
 		
 		meth.accept(p);
-		System.out.println(meth.getSimpleName());
+		System.out.println("Permissions of " +meth.getSimpleName());
 		p.getPermissionSet(meth).printSet();
 	}
 
