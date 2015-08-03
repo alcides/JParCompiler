@@ -2,6 +2,7 @@ package aeminium.jparcompiler.processing;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import spoon.processing.AbstractProcessor;
 import spoon.reflect.code.CtBlock;
@@ -83,18 +84,13 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	}
 
 	private void processInvocation(CtInvocation<?> element) {
-		if (database.containsKey(element)) {
-			PermissionSet s = database.get(element);
-			boolean hasWrites = false;
-			for (Permission p : s) {
-				if (p.type == PermissionType.WRITE || p.type == PermissionType.READWRITE) {
-					hasWrites = true;
-				}
-			}
-			if(!hasWrites) {
-				futurify(element);
-			}
+		if (element.getPosition().getFile().toString().endsWith("FuturifyTemplate.java")) {
+			return;
 		}
+		if (element.getExecutable().getDeclaringType().getQualifiedName().startsWith("java.lang.Math")) {
+			return;
+		}
+		futurify(element);
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -104,6 +100,11 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		CtTypeReference<?> t = element.getType();
 		String id = "aeminium_task_" + (counter++);
 		
+		if (element.getExecutable() != null) {
+			if (Safety.isSafe(element.getExecutable().getDeclaration())) {
+				return;
+			}
+		}
 		
 		// Lambda
 		element.getFactory().getEnvironment().setComplianceLevel(8);
@@ -139,17 +140,39 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			
 		}
 		
-		// Should find previous tasks
-		System.out.println("Futurifying... " + element);
-		database.get(element).printSet();
+		// Let's find lastest local dependency
+
+		PermissionSet set = database.get(element);
+		CtBlock block = element.getParent(CtBlock.class);
+		CtStatement top = block.getStatements().get(0);
+		int topLine = -1;
 		
-		
-		CtStatement st = element.getParent(CtBlock.class);
-		if (st.getParent() instanceof CtExecutable) {
-			CtBlock el = (CtBlock) st;
-			el.insertBegin(c);
+		// First iterate through local variables
+		for (Permission p : set) {
+			if (p.target instanceof CtLocalVariable) {
+				int line = p.target.getPosition().getLine();
+				if  (line > topLine) {
+					topLine = line;
+					top = (CtLocalVariable) p.target;
+				}
+			}
+		}
+		// Then look for control statements
+		int line = -1;
+		for (CtStatement s : block.getStatements()) {
+			line = (s.getPosition() != null) ? s.getPosition().getLine() : line+1;
+			if (line < topLine) continue;
+			if (line >= element.getPosition().getLine()) break;
+			if (database.get(s) != null && database.get(s).containsControl()) {
+				topLine = line;
+				top = s;
+			}
+		}
+		if (topLine == -1) {
+			block.insertBegin(c);
 		} else {
-			st.insertBefore(c);
+			insertAfter(top, c);
+			top.getParent().updateAllParentsBelow();
 		}
 		
 		// Create future.get()
@@ -164,5 +187,21 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 
 		
 	}
+	
+	public static void insertAfter(CtElement a1, CtStatement a2) {
+		CtStatementList e = a1.getParent(CtStatementList.class);
+		if (e == null) {
+			System.out.println("Bode");
+		}
+		List<CtStatement> stmt = new ArrayList<CtStatement>();
+		for (CtStatement s : e.getStatements()) {
+			stmt.add(s);
+			if (s == a1) {
+				stmt.add(a2);
+			}
+		}
+		e.setStatements(stmt);
+	}
+	
 
 }

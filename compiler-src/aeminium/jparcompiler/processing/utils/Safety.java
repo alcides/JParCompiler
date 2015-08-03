@@ -11,6 +11,7 @@ import aeminium.runtime.futures.codegen.Sequential;
 
 public class Safety {
 	public static boolean isSafe(CtElement el) {
+		if (el == null) return false;
 		CtMethod<?> m;
 		if (el instanceof CtMethod) {
 			m = (CtMethod<?>) el;

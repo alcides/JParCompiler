@@ -3,7 +3,9 @@ package aeminium.jparcompiler.templates;
 import spoon.template.Local;
 import spoon.template.Parameter;
 import aeminium.runtime.futures.Future;
+import aeminium.runtime.futures.codegen.Sequential;
 
+@Sequential
 public class FuturifyTemplate extends spoon.template.BlockTemplate {
 	
 	@Parameter()

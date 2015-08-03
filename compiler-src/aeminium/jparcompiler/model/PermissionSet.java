@@ -69,5 +69,21 @@ public class PermissionSet extends ArrayList<Permission> {
 			this.remove(p);
 		}
 	}
+
+	public boolean add(Permission pn) {
+		if (!this.contains(pn)) {
+			return super.add(pn);
+		}
+		return false;
+	}
+
+	public boolean containsControl() {
+		for (Permission p: this) {
+			if (p.control) {
+				return true;
+			}
+		}
+		return false;
+	}
 	
 }

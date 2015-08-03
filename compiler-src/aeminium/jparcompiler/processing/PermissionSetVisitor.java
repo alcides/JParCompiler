@@ -341,19 +341,31 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 			Permission t = new Permission(PermissionType.READ, invocation.getTarget());
 			set.add(t);
 		} else if (e instanceof CtMethod) {
-			CtMethod<?> meth = (CtMethod<?>) e; // TODO: Constructor call
+			CtMethod<?> meth = (CtMethod<?>) e;
 			if (meth == invocation.getParent(CtMethod.class)) {
 				// Use parset only in recursive calls
 			} else {
 				if (!database.containsKey(meth)) {
 					scan(meth.getBody());
 				}
-				System.out.println("Merging two datasets at " + invocation);
-				System.out.println("Call-site");
-				set.printSet();
-				System.out.println("Declare-site");
-				getPermissionSet(meth.getBody()).printSet();
-				set.merge(getPermissionSet(meth.getBody()));
+				PermissionSet declareSet = getPermissionSet(meth.getBody());
+				
+				for (Permission p : declareSet) {
+					if (p.target instanceof CtParameter) {
+						/*
+						int index = 0;
+						for (CtParameter<?> par : meth.getParameters()) {
+							if (par == p.target) break;
+							index++;
+						}
+						Permission p2 = new Permission(p.type, invocation.getArguments().get(index));
+						set.add(p2);
+						*/
+					} else {
+						set.add(p);
+					}
+				}
+				setPermissionSet(invocation, set);
 			}
 		} else {
 			System.out.println("Constructor TODO" + e.getClass());
@@ -408,9 +420,12 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 	}
 
 	public <T> void visitCtNewArray(CtNewArray<T> newArray) {
+		PermissionSet set = new PermissionSet();
 		for (CtExpression<?> e : newArray.getElements()) {
 			scan(e);
+			set.merge(getPermissionSet(e));
 		}
+		setPermissionSet(newArray, set);
 	}
 
 	@Override
