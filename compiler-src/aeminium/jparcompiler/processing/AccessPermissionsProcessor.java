@@ -27,6 +27,9 @@ public class AccessPermissionsProcessor<T> extends AbstractProcessor<CtMethod<T>
 	public void processingDone() {
 		super.processingDone();
 		database = p.database;
+		for (PermissionSet s : database.values()) {
+			s.clean();
+		}
 	}
 
 	

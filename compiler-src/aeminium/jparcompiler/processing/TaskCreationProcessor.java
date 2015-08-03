@@ -27,6 +27,7 @@ import spoon.reflect.visitor.filter.AbstractFilter;
 import aeminium.jparcompiler.model.Permission;
 import aeminium.jparcompiler.model.PermissionSet;
 import aeminium.jparcompiler.model.PermissionType;
+import aeminium.jparcompiler.processing.utils.Safety;
 
 
 public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
@@ -39,22 +40,12 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		super.init();
 		database = AccessPermissionsProcessor.database;
 	}
-	
-	public boolean isSafe(CtElement el) {
-		CtMethod<?> m;
-		if (el instanceof CtMethod) {
-			m = (CtMethod<?>) el;
-		} else {
-			m = el.getParent(CtMethod.class);
-		}
-		if (m == null) return true;
-		return m.getSimpleName().startsWith(SeqMethodProcessor.SEQ_PREFIX);
-	}
 
 	@SuppressWarnings("unchecked")
 	@Override
 	public void process(CtElement element) {
-		if (isSafe(element)) return;
+		if (Safety.isSafe(element)) return;
+		
 		Factory factory = element.getFactory();
 		if (element instanceof CtMethod) {
 			CtMethod<?> m = (CtMethod<?>) element;
@@ -113,10 +104,10 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		CtTypeReference<?> t = element.getType();
 		String id = "aeminium_task_" + (counter++);
 		
-		element.getFactory().getEnvironment().setComplianceLevel(8);
-
-		if (t.isPrimitive()) t = t.box();
 		
+		// Lambda
+		element.getFactory().getEnvironment().setComplianceLevel(8);
+		if (t.isPrimitive()) t = t.box();
 		CtLocalVariable<?> c = factory.Code().createCodeSnippetStatement("aeminium.runtime.futures.Future<" + t.getQualifiedName() + "> " + id + " = new aeminium.runtime.futures.Future<" + t.getQualifiedName() + ">( (aeminium_runtime_tmp) -> null);").compile();
 		
 		// Replace null by current element
@@ -148,24 +139,24 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			
 		}
 		
+		// Should find previous tasks
+		System.out.println("Futurifying... " + element);
+		database.get(element).printSet();
 		
-		CtStatementList statlist = factory.Core().createStatementList();
-		statlist.addStatement(c);
 		
-		CtStatement st = element.getParent(CtStatement.class);
+		CtStatement st = element.getParent(CtBlock.class);
 		if (st.getParent() instanceof CtExecutable) {
-			st = element;
+			CtBlock el = (CtBlock) st;
+			el.insertBegin(c);
+		} else {
+			st.insertBefore(c);
 		}
-		st.insertBefore(statlist);
-		
 		
 		// Create future.get()
 		CtInvocation<E> read = factory.Core().createInvocation();
 		read.setTarget(factory.Code().createVariableRead(element.getFactory().Code().createLocalVariableReference(c), false));
 		read.setArguments(new ArrayList<CtExpression<?>>());
 		read.setType(element.getType());
-
-		// Hard coded
 		read.setExecutable((CtExecutableReference<E>) c.getType().getSuperclass().getDeclaredExecutables().toArray()[0]);
 		
 		element.replace((CtExpression<E>) read);

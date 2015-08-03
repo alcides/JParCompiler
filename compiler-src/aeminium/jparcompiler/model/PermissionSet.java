@@ -28,8 +28,10 @@ public class PermissionSet extends ArrayList<Permission> {
 	}
 
 	public void printSet() {
-		for (Permission p: this)
+		for (Permission p: this) {
+			System.out.print("  ");
 			System.out.println(p);
+		}
 	}
 
 	public void removeTarget(CtElement e) {
@@ -47,7 +49,19 @@ public class PermissionSet extends ArrayList<Permission> {
 	public void removeReturn() {
 		PermissionSet rm = new PermissionSet();
 		for (Permission p: this) {
-			if (p.ret) {
+			if (p.control) {
+				rm.add(p);
+			}
+		}
+		for (Permission p : rm) {
+			this.remove(p);
+		}
+	}
+	
+	public void clean() {
+		PermissionSet rm = new PermissionSet();
+		for (Permission p: this) {
+			if (p.target.getSignature().startsWith("java.lang.Math")) {
 				rm.add(p);
 			}
 		}

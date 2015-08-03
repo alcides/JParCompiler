@@ -31,7 +31,6 @@ import spoon.reflect.code.CtStatement;
 import spoon.reflect.code.CtStatementList;
 import spoon.reflect.code.CtSwitch;
 import spoon.reflect.code.CtSynchronized;
-import spoon.reflect.code.CtTargetedExpression;
 import spoon.reflect.code.CtThrow;
 import spoon.reflect.code.CtTry;
 import spoon.reflect.code.CtTryWithResource;
@@ -68,7 +67,7 @@ public class CopyCatFactory extends CtAbstractVisitor {
 		if (el instanceof CtArrayAccess) {
 			CtArrayAccess cat = (CtArrayAccess) ccat;
 			cat.setIndexExpression((CtExpression) clone(cat.getIndexExpression()));
-			cat.setTarget((CtTargetedExpression) clone(cat.getTarget()));
+			cat.setTarget((CtExpression) clone(cat.getTarget()));
 		}
 		if (el instanceof CtAssert) {
 			CtAssert cat = (CtAssert) ccat;
