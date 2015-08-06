@@ -20,6 +20,7 @@ import spoon.reflect.code.CtReturn;
 import spoon.reflect.code.CtStatement;
 import spoon.reflect.code.CtStatementList;
 import spoon.reflect.code.CtUnaryOperator;
+import spoon.reflect.code.CtVariableAccess;
 import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.code.UnaryOperatorKind;
 import spoon.reflect.cu.SourcePosition;
@@ -359,13 +360,51 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			// Then look for control statements
 			if (getPermissionSet(s).containsControl()) previousStatement = s;
 		}
+		// TODO: Find dependencies
+		
+		List<CtLocalVariable<?>> shadows = new ArrayList<CtLocalVariable<?>>();
+		for (Permission pi : set ) {
+			if (pi.target instanceof CtLocalVariable) {
+				CtLocalVariable lv = (CtLocalVariable<?>) pi.target;
+				CtLocalVariable ass = factory.Core().createLocalVariable();
+				CtVariableRead<?> r = factory.Core().createVariableRead();
+				r.setVariable(lv.getReference());
+				ass.setDefaultExpression(r);
+				ass.setSimpleName(lv.getSimpleName() + "_aeminium_shadow_v" + (counter++));
+				ass.addModifier(ModifierKind.FINAL);
+				ass.setType(lv.getType());
+				shadows.add(ass);
+				setPermissionSet(r, new PermissionSet());
+				setPermissionSet(ass, new PermissionSet());
+			}
+		}
+		if (shadows.size() > 0) {
+			Query.getElements(futureLambda, (e) -> {
+				if (e instanceof CtVariableAccess) {
+					CtVariableAccess<?> va = (CtVariableAccess<?>) e;
+					for (CtLocalVariable lv : shadows) {
+						String[] parts = lv.getSimpleName().split("_");
+						if (parts[0].equals(va.getVariable().getSimpleName())) {
+							va.setVariable(lv.getReference());
+						}
+					}
+				}
+				return true;
+			});
+		}
 
 		if (previousStatement == null) {
 			block.insertBegin(futureAssign);
+			for (CtLocalVariable<?> lv : shadows) {
+				block.insertBegin(lv);
+			}
 			block.updateAllParentsBelow();
 		} else {
 			fixer.scan(previousStatement.getParent(CtBlock.class).getParent());
 			insertAfter(previousStatement, futureAssign);
+			for (CtLocalVariable<?> lv : shadows) {
+				insertAfter(previousStatement, lv);
+			}
 			block = futureAssign.getParent(CtBlock.class);
 		}
 		
@@ -385,6 +424,9 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			return true;
 		}
 		if (element.getExecutable().toString().startsWith("java.util.List")) {
+			return true;
+		}
+		if (element.getExecutable().toString().startsWith("java.util.ArrayList")) {
 			return true;
 		}
 		if (element.getExecutable().toString().startsWith("java.lang")) {
