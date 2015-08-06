@@ -3,6 +3,7 @@ package aeminium.jparcompiler.processing;
 import java.lang.annotation.Annotation;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Stack;
 
 import spoon.reflect.code.CtAnnotationFieldAccess;
 import spoon.reflect.code.CtArrayRead;
@@ -80,6 +81,7 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 
 	HashMap<CtElement, PermissionSet> database = new HashMap<CtElement, PermissionSet>();
 	HashMap<SourcePosition, PermissionSet> databasePos = new HashMap<SourcePosition, PermissionSet>(); // backup
+	Stack<CtElement> stackCheck = new Stack<CtElement>();
 	
 	Permission tmp;
 	
@@ -340,14 +342,18 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 			set.add(t);
 		} else if (e instanceof CtMethod) {
 			CtMethod<?> meth = (CtMethod<?>) e;
-			if (meth == invocation.getParent(CtMethod.class)) {
+			if (meth == invocation.getParent(CtMethod.class) || stackCheck.contains(meth)) {
 				// Use parset only in recursive calls
 			} else {
 				if (getPermissionSet(meth) == null) {
+					stackCheck.add(meth);
 					scan(meth);
+					stackCheck.pop();
 				}
 				if (getPermissionSet(meth.getBody()) == null) {
+					stackCheck.add(meth);
 					scan(meth.getBody());
+					stackCheck.pop();
 				}
 				PermissionSet declareSet = getPermissionSet(meth.getBody());
 				declareSet.removeReturn();
