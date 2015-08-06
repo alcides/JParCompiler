@@ -32,6 +32,7 @@ import spoon.reflect.declaration.ModifierKind;
 import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtExecutableReference;
 import spoon.reflect.reference.CtTypeReference;
+import spoon.reflect.reference.CtVariableReference;
 import spoon.reflect.visitor.Query;
 import aeminium.jparcompiler.model.Permission;
 import aeminium.jparcompiler.model.PermissionSet;
@@ -43,6 +44,7 @@ import aeminium.jparcompiler.processing.utils.Safety;
 public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	
 	HashMap<CtElement, PermissionSet> database;
+	HashMap<CtElement, CtVariableReference<?>> tasks = new HashMap<CtElement, CtVariableReference<?>>();
 	PermissionSetFixer fixer;
 	int counter;
 	
@@ -352,15 +354,40 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		// Find where to place the Future declaration.
 		// Let's start with the current block;
 		CtStatement previousStatement = null; // NULL means the beginning.
-		for (CtStatement s : block.getStatements()) {
-			if (s.getPosition() != null && s.getPosition().getLine() >= pos.getLine()) break;
-			if (s instanceof CtLocalVariable){
-				for (Permission pi : set) if (pi.target == s) previousStatement = s;
+		List<CtVariableReference<?>> taskDeps = new ArrayList<CtVariableReference<?>>();
+		
+		for (CtStatement stmt : block.getStatements()) {
+			if (stmt.getPosition() != null && stmt.getPosition().getLine() >= pos.getLine()) break;
+			// Hard requirement for local variables to be declared
+			if (stmt instanceof CtLocalVariable){
+				for (Permission pi : set) if (pi.target == stmt) previousStatement = stmt;
 			}
 			// Then look for control statements
-			if (getPermissionSet(s).containsControl()) previousStatement = s;
+			PermissionSet stmtSet = getPermissionSet(stmt);
+			if (stmtSet.containsControl()) previousStatement = stmt;
+			// Then look for dependencies
+			for (Permission pi : set) {
+				Permission p2 = stmtSet.getTarget(pi.target);
+				if (p2 != null) {
+					if (pi.type == PermissionType.READ && p2.type == PermissionType.READ) {
+						continue;
+					}
+					// This is a dependency.
+					CtVariableReference<?> dep = tasks.get(stmt);
+					if (dep != null) {
+						// Task dependency.
+						taskDeps.add(dep);
+					} else {
+						// Soft dependency
+						previousStatement = stmt;
+					}
+				}
+			}
 		}
-		// TODO: Find dependencies
+		for (CtVariableReference<?> ref: taskDeps) {
+			CtVariableAccess<?> readTask = factory.Code().createVariableRead(ref, false);
+			newFuture.addArgument(readTask);
+		}
 		
 		List<CtLocalVariable<?>> shadows = new ArrayList<CtLocalVariable<?>>();
 		for (Permission pi : set ) {
@@ -378,6 +405,8 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 				setPermissionSet(ass, new PermissionSet());
 			}
 		}
+		
+		// Replace variable accesses by shadows
 		if (shadows.size() > 0) {
 			Query.getElements(futureLambda, (e) -> {
 				if (e instanceof CtVariableAccess) {
@@ -407,6 +436,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			}
 			block = futureAssign.getParent(CtBlock.class);
 		}
+		tasks.put(read, futureAssign.getReference());
 		
 		// Fix broken blocks
 		fixer.scan(block.getParent());

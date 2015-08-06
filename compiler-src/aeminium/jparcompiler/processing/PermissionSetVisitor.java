@@ -173,7 +173,6 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 
 	public <T> void visitCtBinaryOperator(CtBinaryOperator<T> operator) {
 		scan(operator.getLeftHandOperand());
-		//write(operator.getKind().toString());
 		scan(operator.getRightHandOperand());
 		setPermissionSet(operator, merge(operator.getLeftHandOperand(), operator.getRightHandOperand()));
 	}
@@ -312,7 +311,9 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 		
 		if (invocation.getTarget() != null) {
 			scan(invocation.getTarget());
-			PermissionSet tset = getPermissionSet(invocation.getTarget()); 
+			PermissionSet tset = getPermissionSet(invocation.getTarget());
+			// CheckForDefaults
+			tset = checkForDefaults(tset, invocation.getExecutable());
 			if (tset != null) {
 				parset = parset.merge(tset);
 			}
@@ -638,5 +639,14 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 		if (r.getDeclaringType() != null && r.getDeclaringType().getDeclaration() != null) return r.getDeclaringType().getDeclaration();
 		return null;
 	}
-
+	private PermissionSet checkForDefaults (PermissionSet set, CtExecutableReference<?> ref) {
+		if (ref == null) return set;
+		if (ref.toString().startsWith("java.util.ArrayList") && ref.toString().endsWith(".add")) {
+			set = set.copy();
+			for (Permission p : set) {
+				if (p.type == PermissionType.READ) p.type = PermissionType.READWRITE;
+			}
+		}
+		return set;
+	}
 }

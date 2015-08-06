@@ -9,7 +9,7 @@ import aeminium.runtime.futures.codegen.Sequential;
 
 public class FFT {
 	
-	public static int DEFAULT_SIZE = 8388608;
+	public static int DEFAULT_SIZE = 1024*1024;
 	public static int DEFAULT_THRESHOLD = 1024;
 	
 	@Sequential

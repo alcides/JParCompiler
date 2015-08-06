@@ -94,4 +94,18 @@ public class PermissionSet extends ArrayList<Permission> {
 		return i;
 	}
 	
+	public Permission getTarget(CtElement e) {
+		Permission p = null;
+		for (Permission pi: this) {
+			if (pi.target == e) {
+				if (p == null) {
+					p = pi;
+				} else {
+					if (pi.type != p.type) p.type = PermissionType.READWRITE;
+				}
+				if (pi.control) p.control = true;
+			}
+		}
+		return p;
+	}
 }
