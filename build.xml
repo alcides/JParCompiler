@@ -4,7 +4,8 @@
 	<property name="src.dir" value="src" />
 	<property name="build.dir" value="bin" />
 	<property name="lib.dir" value="lib" />
-	<property name="main-class" value="code.BlackScholes" />
+	<property name="dist.dir" value="dist" />
+	<property name="main-class" value="blackscholes.BlackScholes" />
 
 
 	<property name="spooned.dir" value="spooned" />
@@ -86,21 +87,21 @@
 		</java>
 	</target>
 	
-	<target name="test" depends="compile">
-	    <junit failureProperty="test.failure" fork="true">
-	      <jvmarg value="-Xms512m" />
-		  <jvmarg value="-Xmx1536m" />
-	      <classpath refid="classpath.test" />
-
-	      <formatter type="brief" usefile="false" />
-	    	
-	      <test name="${testcase}" todir="${compiler.build.dir}" if="${testcase}"/>
-	      <batchtest>
-	        <fileset dir="${compiler.build.dir}" includes="aeminium/gpu/tests/*.class aeminium/gpu/tests/*/*.class" excludes="**/*$*.class **/*Template.class" />
-	      </batchtest>
-	    </junit>
-
-	    <fail message="test failed" if="test.failure" />
-	  </target>
+	<target name="jar" depends="clean, compile">
+		<mkdir dir="${dist.dir}" />
+		<copy file="${lib.dir}/AeminiumRuntime.jar" todir="${dist.dir}" />
+		<copy file="${lib.dir}/AeminiumFutures.jar" todir="${dist.dir}" />
+		<jar destfile="${dist.dir}/JparCompilerExamples.jar">
+		   <fileset dir="${build.dir}/" />
+		   <!--<fileset dir="${spooned.dir}" />-->
+		   <manifest>
+			 <!-- Who is building this jar? -->
+			 <attribute name="Built-By" value="${user.name}"/>
+			 <!-- Information about the program itself -->
+			 <attribute name="Implementation-Vendor" value="Aeminium Project"/>
+			 <attribute name="Implementation-Title" value="JPar Examples"/>
+		   </manifest>
+		  </jar>
+		</target>
 
 </project>

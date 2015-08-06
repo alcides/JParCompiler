@@ -85,5 +85,13 @@ public class PermissionSet extends ArrayList<Permission> {
 		}
 		return false;
 	}
+
+	public int count(PermissionType pt) {
+		int i = 0;
+		for (Permission p: this) {
+			if (p.type == pt || ( pt == PermissionType.WRITE && p.type == PermissionType.READWRITE)) i++;
+		}
+		return i;
+	}
 	
 }

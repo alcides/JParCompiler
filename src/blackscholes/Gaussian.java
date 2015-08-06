@@ -1,4 +1,4 @@
-package code;
+package blackscholes;
 
 import aeminium.runtime.futures.codegen.Sequential;
 

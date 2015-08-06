@@ -1,4 +1,4 @@
-package code;
+package fib;
 
 
 public class Fib {

@@ -1,4 +1,4 @@
-package code;
+package blackscholes;
 
 import java.util.concurrent.ThreadLocalRandom;
 
