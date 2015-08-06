@@ -283,6 +283,8 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		Factory factory = element.getFactory();
 		factory.getEnvironment().setComplianceLevel(8);
 		
+		if (shouldFuturify(element)) return;
+		
 		CtTypeReference<?> t = element.getType();
 		if (t.isPrimitive()) t = t.box();
 		if (t.toString().endsWith("[]")) {
@@ -292,10 +294,9 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		
 		String id = "aeminium_task_" + (counter++);
 		
-		if (element.getExecutable() != null) {
-			if (Safety.isSafe(element.getExecutable().getDeclaration())) {
-				return;
-			}
+		if (id.equals("aeminium_task_31")) {
+			System.out.println("Element: " + element + ", " + element.getClass());
+			set.printSet();
 		}
 		
 		// Save block before changing element;
@@ -347,48 +348,49 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			futureLambda.setExpression(element);
 		}
 		
-		// Let's find lastest local dependency
-		CtStatement top = block.getStatements().get(0);
-		int topLine = -1;
-		
-		// First iterate through local variables
-		for (Permission p : set) {
-			if (p.target instanceof CtLocalVariable) {
-				int line = p.target.getPosition().getLine();
-				if  (line > topLine) {
-					topLine = line;
-					top = (CtLocalVariable) p.target;
-				}
-			}
-		}
-		// Then look for control statements
-		int line = -1;
+		// Find where to place the Future declaration.
+		// Let's start with the current block;
+		CtStatement previousStatement = null; // NULL means the beginning.
 		for (CtStatement s : block.getStatements()) {
-			line = (s.getPosition() != null) ? s.getPosition().getLine() : line+1;
-			if (line < topLine) continue;
-			if (line >= pos.getLine()) break;
-			if (database.get(s) != null && database.get(s).containsControl()) { // TODO: Reimplement
-				topLine = line;
-				top = s;
+			if (s.getPosition() != null && s.getPosition().getLine() >= pos.getLine()) break;
+			if (s instanceof CtLocalVariable){
+				for (Permission pi : set) if (pi.target == s) previousStatement = s;
 			}
+			// Then look for control statements
+			if (getPermissionSet(s).containsControl()) previousStatement = s;
 		}
-		if (id.equals("aeminium_task_31")) {
-			System.out.println("Topline: " + topLine);
-			System.out.println("top: " + top);
-		}
-		if (topLine == -1) {
+
+		if (previousStatement == null) {
 			block.insertBegin(futureAssign);
 			block.updateAllParentsBelow();
 		} else {
-			fixer.scan(top.getParent(CtBlock.class).getParent());
-			insertAfter(top, futureAssign);
+			fixer.scan(previousStatement.getParent(CtBlock.class).getParent());
+			insertAfter(previousStatement, futureAssign);
+			block = futureAssign.getParent(CtBlock.class);
 		}
 		
 		// Fix broken blocks
 		fixer.scan(block.getParent());
-		fixer.scan(top.getParent(CtBlock.class).getParent());
-		fixer.scan(futureAssign.getParent(CtBlock.class).getParent());
 		fixer.scan(read.getParent(CtBlock.class).getParent());
+	}
+
+	private <E> boolean shouldFuturify(CtInvocation<E> element) {
+		if (Safety.isSafe(element.getExecutable().getDeclaration())) {
+			return true;
+		}
+		if (element.getExecutable().toString().equals("java.io.PrintStream.println")) {
+			return true;
+		}
+		if (element.getExecutable().toString().equals("java.util.Arrays.asList")) {
+			return true;
+		}
+		if (element.getExecutable().toString().startsWith("java.util.List")) {
+			return true;
+		}
+		if (element.getExecutable().toString().startsWith("java.lang")) {
+			return true;
+		}
+		return false;
 	}
 	
 	protected void fixBlock(CtBlock<?> brokenBlock) {
@@ -426,15 +428,17 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			}
 		}
 		e.setStatements(stmt);
+		e.updateAllParentsBelow();
 		setPermissionSet(e, backup);
 	}
 	
 	protected PermissionSet getPermissionSet(CtElement element) {
-		PermissionSet vars = database.get(element);
-		if (vars == null) {
-			throw new RuntimeException("Missing database for " + element.hashCode() + " / " + element + " / " + element.getClass());
+		for (int i = 0; i < 2; i++) {
+			PermissionSet vars = database.get(element);
+			if (vars != null) return vars;
+			fixer.scan(element.getParent());
 		}
-		return vars;
+		throw new RuntimeException("Missing database for " + element.hashCode() + " / " + element + " / " + element.getClass());
 	}
 	
 	protected void setPermissionSet(CtElement e, PermissionSet s) {

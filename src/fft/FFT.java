@@ -33,7 +33,9 @@ public class FFT {
 	
 	public static void main(String[] args) {
 		int size = FFT.DEFAULT_SIZE;
-		if (args.length > 0) size = Integer.parseInt(args[0]);
+		if (args.length > 0) {
+			size = Integer.parseInt(args[0]);
+		}
 
 		List<Complex> input = Arrays.asList(FFT.createRandomComplexArray(size, new Random(1L)));
 

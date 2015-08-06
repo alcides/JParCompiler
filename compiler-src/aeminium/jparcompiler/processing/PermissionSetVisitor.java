@@ -50,7 +50,6 @@ import spoon.reflect.code.CtUnaryOperator;
 import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.code.CtVariableWrite;
 import spoon.reflect.code.CtWhile;
-import spoon.reflect.code.UnaryOperatorKind;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtAnnotation;
 import spoon.reflect.declaration.CtAnnotationType;
@@ -64,11 +63,9 @@ import spoon.reflect.declaration.CtInterface;
 import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtPackage;
 import spoon.reflect.declaration.CtParameter;
+import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtCatchVariableReference;
 import spoon.reflect.reference.CtExecutableReference;
-import spoon.reflect.reference.CtLocalVariableReference;
-import spoon.reflect.reference.CtPackageReference;
-import spoon.reflect.reference.CtParameterReference;
 import spoon.reflect.reference.CtReference;
 import spoon.reflect.reference.CtUnboundVariableReference;
 import spoon.reflect.visitor.CtAbstractVisitor;
@@ -82,8 +79,8 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 	HashMap<CtElement, PermissionSet> database = new HashMap<CtElement, PermissionSet>();
 	HashMap<SourcePosition, PermissionSet> databasePos = new HashMap<SourcePosition, PermissionSet>(); // backup
 	Stack<CtElement> stackCheck = new Stack<CtElement>();
-	
-	Permission tmp;
+
+	static CtElement out;
 	
 	public PermissionSetVisitor() {
 		super();
@@ -110,6 +107,11 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 	
 	
 	public void scan(CtElement e) {
+		if (out == null) {
+			Factory f = e.getFactory();
+			out = f.Core().createAssert(); // Hackish, I know.
+		}
+		
 		if (e != null) {
 			e.accept(this);
 			if (getPermissionSet(e) == null) {
@@ -149,13 +151,8 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 	public <T> void visitCtArrayWrite(CtArrayWrite<T> arrayAccess) {
 		scan(arrayAccess.getTarget());
 		scan(arrayAccess.getIndexExpression());
-		PermissionSet set = new PermissionSet();
-		if (tmp != null) {
-			tmp.type = PermissionType.READ;
-			set.add(tmp);
-		} else {
-			set = getPermissionSet(arrayAccess.getTarget());
-		}
+		
+		PermissionSet set = getPermissionSet(arrayAccess.getTarget());
 		set = set.merge(getPermissionSet(arrayAccess.getIndexExpression()));
 		setPermissionSet(arrayAccess, set);
 	}
@@ -168,13 +165,9 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 
 	public <T, A extends T> void visitCtAssignment(
 			CtAssignment<T, A> assignement) {
-		PermissionSet set = new PermissionSet();
 		scan(assignement.getAssigned());
-		if (tmp != null) {
-			tmp.type = PermissionType.READ;
-			set.add(tmp);
-		}
 		scan(assignement.getAssignment());
+		PermissionSet set = getPermissionSet(assignement.getAssigned());
 		setPermissionSet(assignement, set.merge(getPermissionSet(assignement.getAssignment())));
 	}
 
@@ -251,19 +244,6 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 		// Do Nothing
 	}
 
-	public <T> void visitCtExecutableReference(
-			CtExecutableReference<T> reference) {
-		if (reference.getDeclaringType()!=null) { // null in noclasspath
-			if (reference.getDeclaringType().getDeclaration() != null) {
-				tmp = new Permission(PermissionType.TEMP, reference.getDeclaringType().getDeclaration());
-			} else {
-				tmp = null;
-			}
-		} else {
-			tmp = new Permission(PermissionType.TEMP, reference.getDeclaration());
-		}
-	}
-
 	public <T> void visitCtField(CtField<T> f) {
 		// Do Nothing
 	}
@@ -329,6 +309,15 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 
 	public <T> void visitCtInvocation(CtInvocation<T> invocation) {
 		PermissionSet parset = new PermissionSet();
+		
+		if (invocation.getTarget() != null) {
+			scan(invocation.getTarget());
+			PermissionSet tset = getPermissionSet(invocation.getTarget()); 
+			if (tset != null) {
+				parset = parset.merge(tset);
+			}
+		}
+		
 		for(int i = 0; i < invocation.getArguments().size();i++){
 			CtExpression<?> arg_i = invocation.getArguments().get(i);
 			scan(arg_i);
@@ -336,12 +325,12 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 		}
 		PermissionSet set = parset.copy();
 		
-		CtElement e = invocation.getExecutable().getDeclaration();
-		if (e == null) {
-			Permission t = new Permission(PermissionType.READ, invocation.getTarget());
-			set.add(t);
-		} else if (e instanceof CtMethod) {
-			CtMethod<?> meth = (CtMethod<?>) e;
+		scan(invocation.getExecutable());
+		CtElement target = getDeclarationOf(invocation.getExecutable());
+		if (target != null) {
+			Permission acess = new Permission(PermissionType.READ, target);
+			set.add(acess);
+			CtMethod<?> meth = (CtMethod<?>) target;
 			if (meth == invocation.getParent(CtMethod.class) || stackCheck.contains(meth)) {
 				// Use parset only in recursive calls
 			} else {
@@ -373,14 +362,6 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 					}
 				}
 			}
-		} else {
-			System.out.println("Constructor TODO" + e.getClass());
-		}
-		
-		scan(invocation.getExecutable());
-		if (tmp != null) {
-			tmp.type = PermissionType.READ;
-			set.add(tmp);
 		}
 		setPermissionSet(invocation, set);
 	}
@@ -390,22 +371,15 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 	}
 
 	public <T> void visitCtLocalVariable(CtLocalVariable<T> localVariable) {
-		scan(localVariable.getReference());
-		tmp.type = PermissionType.WRITE;
+		Permission p = new Permission(PermissionType.WRITE, localVariable);
 		PermissionSet set = new PermissionSet();
-		set.add(tmp);
+		set.add(p);
 		
 		if (localVariable.getAssignment() != null) {
 			scan(localVariable.getAssignment());
 			set = set.merge(getPermissionSet(localVariable.getAssignment()));
 		}
-		
 		setPermissionSet(localVariable, set);
-	}
-
-	public <T> void visitCtLocalVariableReference(
-			CtLocalVariableReference<T> reference) {
-		tmp = new Permission(PermissionType.TEMP, reference.getDeclaration());
 	}
 
 	@Override
@@ -496,19 +470,10 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 	public void visitCtPackage(CtPackage ctPackage) {
 	}
 
-	public void visitCtPackageReference(CtPackageReference reference) {
-		// write(reference.getSimpleName());
-		// Do Nothing
-	}
-
 	public <T> void visitCtParameter(CtParameter<T> parameter) {
 		// Do Nothing
 	}
-
-	public <T> void visitCtParameterReference(CtParameterReference<T> reference) {
-		tmp = new Permission(PermissionType.TEMP, reference.getDeclaration());
-	}
-
+	
 	public <R> void visitCtReturn(CtReturn<R> returnStatement) {
 		scan(returnStatement.getReturnedExpression());
 		Permission retp = createControlPermission(returnStatement.getParent(CtBlock.class));
@@ -532,6 +497,15 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 		scan(switchStatement.getSelector());
 		for (CtCase<?> c : switchStatement.getCases())
 			scan(c);
+	}
+	
+	public <T>void visitCtTypeAccess(spoon.reflect.code.CtTypeAccess<T> typeAccess) {
+		PermissionSet set = new PermissionSet();
+		if (typeAccess.getType().getDeclaration() != null) {
+			Permission p = new Permission(PermissionType.READ, typeAccess.getType().getDeclaration());
+			set.add(p);
+		}
+		setPermissionSet(typeAccess, set);
 	}
 
 	public void visitCtSynchronized(CtSynchronized synchro) {
@@ -585,39 +559,23 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 
 	public <T> void visitCtUnaryOperator(CtUnaryOperator<T> operator) {
 		scan(operator.getOperand());
-		PermissionSet set = getPermissionSet(operator.getOperand());
-		setPermissionSet(operator, set);
-		if (operator.getKind() == UnaryOperatorKind.POSTDEC || operator.getKind() == UnaryOperatorKind.POSTINC || operator.getKind() == UnaryOperatorKind.PREDEC || operator.getKind() == UnaryOperatorKind.PREINC) {
-			Permission e = set.get(0);
-			set.add(new Permission(PermissionType.WRITE, e.target));
-		}
-		setPermissionSet(operator, set);
+		setPermissionSet(operator, getPermissionSet(operator.getOperand()));
 	}
 
 	public <T> void visitCtVariableRead(CtVariableRead<T> variableRead) {
-		scan(variableRead.getVariable());
+		CtElement target = variableRead.getVariable().getDeclaration();
+		Permission p = new Permission(PermissionType.READ, target);
 		PermissionSet set = new PermissionSet();
-		if (tmp != null) {
-			tmp.type = PermissionType.READ;
-			set.add(tmp);
-			tmp = null;
-		} else {
-			throw new RuntimeException("Did not process " + variableRead);
-		}
+		set.add(p);
 		setPermissionSet(variableRead, set);
 	}
 
 	@Override
 	public <T> void visitCtVariableWrite(CtVariableWrite<T> variableWrite) {
-		scan(variableWrite.getVariable());
+		CtElement target = variableWrite.getVariable().getDeclaration();
+		Permission p = new Permission(PermissionType.WRITE, target);
 		PermissionSet set = new PermissionSet();
-		if (tmp != null) {
-			tmp.type = PermissionType.READ;
-			set.add(tmp);
-			tmp = null;
-		} else {
-			throw new RuntimeException("Did not process " + variableWrite);
-		}
+		set.add(p);
 		setPermissionSet(variableWrite, set);
 	}
 
@@ -640,13 +598,15 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 			setPermissionSet(fieldRead, set);
 			return;
 		}
-		Permission p;
 		if (fieldRead.getSignature().endsWith("#length")) {
-			p = new Permission(PermissionType.READ, fieldRead.getTarget());
+			set.add(new Permission(PermissionType.READ, fieldRead.getTarget()));
 		} else {
-			p = new Permission(PermissionType.READ, fieldRead.getVariable().getDeclaration());	
+			if (fieldRead.getVariable().getDeclaration() != null) {
+				set.add(new Permission(PermissionType.READ, fieldRead.getVariable().getDeclaration()));
+			} else {
+				set.add(new Permission(PermissionType.WRITE, out));
+			}
 		}
-		set.add(p);
 		setPermissionSet(fieldRead, set);
 	}
 
@@ -655,8 +615,10 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 		
 		PermissionSet set = new PermissionSet();
 		scan(fieldWrite.getTarget());
-		Permission p = new Permission(PermissionType.WRITE, fieldWrite.getVariable().getDeclaration());
-		set.add(p);
+		if (fieldWrite.getVariable().getDeclaration() != null) {
+			Permission p = new Permission(PermissionType.WRITE, fieldWrite.getVariable().getDeclaration());
+			set.add(p);
+		}
 		setPermissionSet(fieldWrite, set);
 	}
 
@@ -671,5 +633,10 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 		return p;
 	}
 	
+	private CtElement getDeclarationOf(CtExecutableReference<?> r) {
+		if (r.getDeclaration() != null) return r.getDeclaration();
+		if (r.getDeclaringType() != null && r.getDeclaringType().getDeclaration() != null) return r.getDeclaringType().getDeclaration();
+		return null;
+	}
 
 }
