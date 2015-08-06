@@ -346,6 +346,9 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 				if (getPermissionSet(meth) == null) {
 					scan(meth);
 				}
+				if (getPermissionSet(meth.getBody()) == null) {
+					scan(meth.getBody());
+				}
 				PermissionSet declareSet = getPermissionSet(meth.getBody());
 				declareSet.removeReturn();
 				for (Permission p : declareSet) {

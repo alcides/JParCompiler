@@ -7,6 +7,7 @@ import java.util.Random;
 
 import aeminium.runtime.futures.codegen.Sequential;
 
+@Sequential
 public class FFT {
 	
 	public static int DEFAULT_SIZE = 524288;

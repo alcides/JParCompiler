@@ -11,6 +11,7 @@ import spoon.reflect.code.CtBlock;
 import spoon.reflect.code.CtConstructorCall;
 import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtFor;
+import spoon.reflect.code.CtIf;
 import spoon.reflect.code.CtInvocation;
 import spoon.reflect.code.CtLambda;
 import spoon.reflect.code.CtLocalVariable;
@@ -22,9 +23,11 @@ import spoon.reflect.code.CtUnaryOperator;
 import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.code.UnaryOperatorKind;
 import spoon.reflect.cu.SourcePosition;
+import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtParameter;
+import spoon.reflect.declaration.ModifierKind;
 import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtExecutableReference;
 import spoon.reflect.reference.CtTypeReference;
@@ -56,19 +59,29 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		
 		Factory factory = element.getFactory();
 		if (element instanceof CtMethod) {
-			/*
 			CtMethod<?> m = (CtMethod<?>) element;
 			if (m.getSimpleName().equals("main") && m.hasModifier(ModifierKind.STATIC) && m.hasModifier(ModifierKind.PUBLIC)) {
 				// Surround main method with inits and shutdowns.
 				CtInvocation<?> c = factory.Code().createCodeSnippetStatement("aeminium.runtime.futures.RuntimeManager.init();").compile();
 				m.getBody().insertBegin(c);
+				m.getBody().updateAllParentsBelow();
+				setPermissionSet(c, new PermissionSet());
 				
 				CtInvocation<?> c2 = factory.Code().createCodeSnippetStatement("aeminium.runtime.futures.RuntimeManager.shutdown();").compile();
 				m.getBody().insertEnd(c2);
+				m.getBody().updateAllParentsBelow();
+				setPermissionSet(c2, new PermissionSet());
 			} else {
 				// create if parallelize
+				
+				Permission perm = new Permission(PermissionType.WRITE, element);
+				perm.control = true;
+				PermissionSet ps = new PermissionSet();
+				ps.add(perm);
+				
 				CtIf i = factory.Core().createIf();
 				CtExpression<?> inv = factory.Code().createCodeSnippetExpression("aeminium.runtime.futures.RuntimeManager.shouldSeq()").compile();
+				setPermissionSet(inv, ps.copy());
 				i.setCondition((CtExpression<Boolean>) inv);
 				
 				CtClass<?> cl = m.getParent(CtClass.class);
@@ -76,19 +89,19 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 				
 				ArrayList<CtExpression<?>> args = new ArrayList<CtExpression<?>>();
 				for (CtParameter<?> p : m.getParameters()) {
-					args.add(factory.Code().createVariableRead(factory.Method().createParameterReference(p), m.hasModifier(ModifierKind.STATIC)));
+					CtExpression<?> arg = factory.Code().createVariableRead(factory.Method().createParameterReference(p), m.hasModifier(ModifierKind.STATIC));
+					args.add(arg);
+					setPermissionSet(arg, ps.copy());
 				}
 				
 				CtInvocation<?> body = factory.Code().createInvocation(null, ref, args);
+				setPermissionSet(body, ps.copy());
 				i.setThenStatement(body);
 				
-				Permission p = new Permission(PermissionType.WRITE, element);
-				p.control = true;
-				PermissionSet ps = new PermissionSet();
-				ps.add(p);
-				setPermissionSet(i, ps);
+				setPermissionSet(i, ps.copy());
 				m.getBody().insertBegin(i);
-			}*/
+				m.getBody().updateAllParentsBelow();
+			}
 			
 		}
 		if (element instanceof CtInvocation<?>) {
