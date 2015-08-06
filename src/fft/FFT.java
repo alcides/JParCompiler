@@ -9,8 +9,7 @@ import aeminium.runtime.futures.codegen.Sequential;
 
 public class FFT {
 	
-	public static int DEFAULT_SIZE = 1024*1024;
-	public static int DEFAULT_THRESHOLD = 1024;
+	public static int DEFAULT_SIZE = 1024*32;
 	
 	@Sequential
 	public static Complex[] createRandomComplexArray(int n) {
@@ -64,13 +63,14 @@ public class FFT {
 		for (int k = 0; k < N / 2; k++) {
 			even.add(x.get(2*k));
 		}
-		List<Complex> q = sequentialFFT(even);
-
+		
 		// fft of even terms
 		ArrayList<Complex> odd = new ArrayList<Complex>();
 		for (int k = 0; k < N / 2; k++) {
 			odd.add(x.get(2*k+1));
 		}
+		
+		List<Complex> q = sequentialFFT(even);
 		List<Complex> r = sequentialFFT(odd);
 
 		// combine
