@@ -116,7 +116,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			fixer.scan(element.getParent()); // Hack
 			getPermissionSet(element);
 			getPermissionSet(element.getParent()); // Double Check
-			//processFor((CtFor) element);
+			processFor((CtFor) element);
 		}
 	}
 
@@ -207,6 +207,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 								incrementReducer = ass.getFactory().Code().createCodeSnippetExpression("aeminium.runtime.futures.codegen.ForHelper.floatSum").compile();
 							if (ass.getType().getSimpleName().equals("double"))
 								incrementReducer = ass.getFactory().Code().createCodeSnippetExpression("aeminium.runtime.futures.codegen.ForHelper.doubleSum").compile();
+							setPermissionSet(incrementReducer, new PermissionSet());
 						}
 					}
 				}
@@ -237,6 +238,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		args.add(end);
 		CtLambda<?> lambda = (CtLambda<?>) forHelper.getArguments().get(2);
 		CtBlock<?> block = (CtBlock<?>) element.getBody();
+		setPermissionSet(lambda, new PermissionSet());
 		
 		CtLocalVariable<?> varDecl = factory.Core().createLocalVariable();
 		varDecl.setSimpleName(idRet);
@@ -357,6 +359,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		List<CtVariableReference<?>> taskDeps = new ArrayList<CtVariableReference<?>>();
 		
 		for (CtStatement stmt : block.getStatements()) {
+			if (stmt == read) break;
 			if (stmt.getPosition() != null && stmt.getPosition().getLine() >= pos.getLine()) break;
 			// Hard requirement for local variables to be declared
 			if (stmt instanceof CtLocalVariable){
@@ -369,13 +372,14 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			for (Permission pi : set) {
 				Permission p2 = stmtSet.getTarget(pi.target);
 				if (p2 != null) {
+					if (pi.control == true) continue;
 					if (pi.type == PermissionType.READ && p2.type == PermissionType.READ) {
 						continue;
 					}
 					// This is a dependency.
 					CtVariableReference<?> dep = tasks.get(stmt);
 					if (dep != null) {
-						// Task dependency.
+						// Task dependency
 						taskDeps.add(dep);
 					} else {
 						// Soft dependency

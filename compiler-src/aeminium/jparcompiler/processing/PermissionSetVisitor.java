@@ -199,7 +199,10 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 	}
 
 	public void visitCtBreak(CtBreak breakStatement) {
-		// Do Nothing
+		Permission retp = createControlPermission(breakStatement.getParent(CtBlock.class));
+		PermissionSet set = new PermissionSet();
+		set.add(retp);
+		setPermissionSet(breakStatement, set);
 	}
 
 	public <E> void visitCtCase(CtCase<E> caseStatement) {
@@ -477,8 +480,10 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 	
 	public <R> void visitCtReturn(CtReturn<R> returnStatement) {
 		scan(returnStatement.getReturnedExpression());
-		Permission retp = createControlPermission(returnStatement.getParent(CtBlock.class));
 		PermissionSet set = (returnStatement.getReturnedExpression() == null) ? new PermissionSet() : getPermissionSet(returnStatement.getReturnedExpression());
+		Permission blockp = createControlPermission(returnStatement.getParent(CtBlock.class));
+		set.add(blockp);
+		Permission retp = createControlPermission(returnStatement.getParent(CtMethod.class));
 		set.add(retp);
 		setPermissionSet(returnStatement, set);
 	}
