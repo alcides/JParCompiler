@@ -46,7 +46,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	HashMap<CtElement, PermissionSet> database;
 	HashMap<CtElement, CtVariableReference<?>> tasks = new HashMap<CtElement, CtVariableReference<?>>();
 	PermissionSetFixer fixer;
-	int counter;
+	int counterTasks;
 	
 	@Override
 	public void init() {
@@ -227,8 +227,8 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		// Backup assign
 		CtOperatorAssignment<?, ?> update = (CtOperatorAssignment<?, ?>) CopyCatFactory.clone(stToChange);
 		
-		String id = "aeminium_for_tmp_" + counter++;
-		String idRet = "aeminium_for_ret_" + counter++;
+		String id = "aeminium_for_tmp_" + counterTasks++;
+		String idRet = "aeminium_for_ret_" + counterTasks++;
 		CtLocalVariable<?> hollowSetting = factory.Code().createCodeSnippetStatement("aeminium.runtime.futures.HollowFuture<" + returnTypeBoxed + "> " + id + " = aeminium.runtime.futures.codegen.ForHelper.forContinuousIntReduce1(0,1, (Integer i) -> { return null; }, null)").compile();
 		CtInvocation<?> forHelper = (CtInvocation<?>) hollowSetting.getDefaultExpression();
 		ArrayList<CtExpression<?>> args = new ArrayList<CtExpression<?>>();
@@ -291,18 +291,13 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		if (shouldFuturify(element)) return;
 		
 		CtTypeReference<?> t = element.getType();
+		CtTypeReference<?> originalType = element.getType();
 		if (t.isPrimitive()) t = t.box();
-		if (t.toString().endsWith("[]")) {
-			System.out.println("Do not know how to handle this type " + t);
-			return;
+		boolean needsCast = t.toString().endsWith("[]");
+		if (needsCast) {
+			t = factory.Type().createReference(Object.class);
 		}
-		
-		String id = "aeminium_task_" + (counter++);
-		
-		if (id.equals("aeminium_task_31")) {
-			System.out.println("Element: " + element + ", " + element.getClass());
-			set.printSet();
-		}
+		String id = "aeminium_task_" + (counterTasks++);
 		
 		// Save block before changing element;
 		CtBlock block = element.getParent(CtBlock.class);
@@ -332,7 +327,11 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		read.setArguments(new ArrayList<CtExpression<?>>());
 		read.setType(element.getType());
 		read.setExecutable((CtExecutableReference<E>) futureAssign.getType().getSuperclass().getDeclaredExecutables().toArray()[0]);
-		if (!(element.getParent() instanceof CtBlock)) read.addTypeCast(t);
+		if (needsCast) {
+			read.addTypeCast(originalType);
+		} else {
+			if (!(element.getParent() instanceof CtBlock)) read.addTypeCast(t);
+		}
 		setPermissionSet(read, set.copy());
 		element.replace((CtExpression<E>) read);
 		read.getParent(CtBlock.class).updateAllParentsBelow();
@@ -351,6 +350,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			futureLambda.setBody(futureLambdaBlock);
 		} else {
 			futureLambda.setExpression(element);
+			if (needsCast) element.addTypeCast(t);
 		}
 		
 		// Find where to place the Future declaration.
@@ -401,7 +401,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 				CtVariableRead<?> r = factory.Core().createVariableRead();
 				r.setVariable(lv.getReference());
 				ass.setDefaultExpression(r);
-				ass.setSimpleName(lv.getSimpleName() + "_aeminium_shadow_v" + (counter++));
+				ass.setSimpleName(lv.getSimpleName() + "_aeminium_shadow_v" + (counterTasks++));
 				ass.addModifier(ModifierKind.FINAL);
 				ass.setType(lv.getType());
 				shadows.add(ass);
