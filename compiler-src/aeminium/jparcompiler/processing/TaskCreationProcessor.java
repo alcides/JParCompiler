@@ -327,11 +327,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		read.setArguments(new ArrayList<CtExpression<?>>());
 		read.setType(element.getType());
 		read.setExecutable((CtExecutableReference<E>) futureAssign.getType().getSuperclass().getDeclaredExecutables().toArray()[0]);
-		if (needsCast) {
-			read.addTypeCast(originalType);
-		} else {
-			if (!(element.getParent() instanceof CtBlock)) read.addTypeCast(t);
-		}
+		if (!(element.getParent() instanceof CtBlock)) read.addTypeCast(originalType);
 		setPermissionSet(read, set.copy());
 		element.replace((CtExpression<E>) read);
 		read.getParent(CtBlock.class).updateAllParentsBelow();
@@ -401,7 +397,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 				CtVariableRead<?> r = factory.Core().createVariableRead();
 				r.setVariable(lv.getReference());
 				ass.setDefaultExpression(r);
-				ass.setSimpleName(lv.getSimpleName() + "_aeminium_shadow_v" + (counterTasks++));
+				ass.setSimpleName(lv.getSimpleName() + "_aeminium_" + (counterTasks-1));
 				ass.addModifier(ModifierKind.FINAL);
 				ass.setType(lv.getType());
 				shadows.add(ass);
