@@ -140,21 +140,54 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 		// TODO
 	}
 
+	
+	
 	@Override
 	public <T> void visitCtArrayRead(CtArrayRead<T> arrayAccess) {
 		scan(arrayAccess.getTarget());
 		scan(arrayAccess.getIndexExpression());
-		setPermissionSet(arrayAccess, merge(arrayAccess.getTarget(), arrayAccess.getIndexExpression()));
+		PermissionSet targetPermissions = getPermissionSet(arrayAccess.getTarget());
+		PermissionSet indexPermissions = getPermissionSet(arrayAccess.getIndexExpression());
+		if (targetPermissions.size() > 0) {
+			Permission arr = targetPermissions.get(0);
+			arr.type = PermissionType.READ;
+			
+			// If arr[i] = sth, and i is inside a for cycle
+			if (indexPermissions.size() == 1 && indexPermissions.get(0).type == PermissionType.READ) {
+				if (arrayAccess.getIndexExpression() instanceof CtVariableRead) {
+					CtVariableRead<?> r = (CtVariableRead<?>) arrayAccess.getIndexExpression();
+					if(r.getVariable().getDeclaration() instanceof CtLocalVariable) {
+						arr.index = (CtLocalVariable<?>) r.getVariable().getDeclaration();
+					}
+				}
+			}
+		}
+		PermissionSet newPermissions = targetPermissions.merge(indexPermissions);
+		setPermissionSet(arrayAccess, newPermissions);
 	}
 
 	@Override
 	public <T> void visitCtArrayWrite(CtArrayWrite<T> arrayAccess) {
 		scan(arrayAccess.getTarget());
 		scan(arrayAccess.getIndexExpression());
-		
-		PermissionSet set = getPermissionSet(arrayAccess.getTarget());
-		set = set.merge(getPermissionSet(arrayAccess.getIndexExpression()));
-		setPermissionSet(arrayAccess, set);
+		PermissionSet targetPermissions = getPermissionSet(arrayAccess.getTarget());
+		PermissionSet indexPermissions = getPermissionSet(arrayAccess.getIndexExpression());
+		if (targetPermissions.size() > 0) { 
+			Permission arr = targetPermissions.get(0);
+			arr.type = PermissionType.WRITE;
+			
+			// If arr[i] = sth, and i is inside a for cycle
+			if (indexPermissions.size() == 1 && indexPermissions.get(0).type == PermissionType.READ) {
+				if (arrayAccess.getIndexExpression() instanceof CtVariableRead) {
+					CtVariableRead<?> r = (CtVariableRead<?>) arrayAccess.getIndexExpression();
+					if(r.getVariable().getDeclaration() instanceof CtLocalVariable) {
+						arr.index = (CtLocalVariable<?>) r.getVariable().getDeclaration();
+					}
+				}
+			}
+		}
+		PermissionSet newPermissions = targetPermissions.merge(indexPermissions);
+		setPermissionSet(arrayAccess, newPermissions);
 	}
 
 	public <T> void visitCtAssert(CtAssert<T> asserted) {
@@ -281,6 +314,18 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 			set = set.merge(getPermissionSet(s));
 		}
 		
+		List<CtLocalVariable<?>> es = forLoop.getElements(new Filter<CtLocalVariable<?>>() {
+
+			@Override
+			public boolean matches(CtLocalVariable<?> e) {
+				return true;
+			}
+		});
+		
+		for (CtLocalVariable<?> e : es) {
+			set.removeTarget(e);
+		}
+		
 		setPermissionSet(forLoop, set);
 		
 	}
@@ -352,21 +397,22 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 				declareSet.removeReturn();
 				for (Permission p : declareSet) {
 					if (p.target instanceof CtParameter) {
-						/*
-						int index = 0;
-						for (CtParameter<?> par : meth.getParameters()) {
-							if (par == p.target) break;
-							index++;
+						if (meth.getParameters().contains(p.target)) {
+							int index = meth.getParameters().indexOf(p.target);
+							Permission p2 = new Permission(p.type, invocation.getArguments().get(index));
+							set.add(p2);
 						}
-						Permission p2 = new Permission(p.type, invocation.getArguments().get(index));
-						set.add(p2);
-						*/
 					} else {
 						set.add(p);
 					}
 				}
 			}
 		}
+		if (invocation.getExecutable().getSimpleName().startsWith("advance")) {
+			System.out.println("Advance perms");
+			set.printSet();
+		}
+		
 		setPermissionSet(invocation, set);
 	}
 
@@ -600,6 +646,14 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 	public <T> void visitCtFieldRead(CtFieldRead<T> fieldRead) {
 		scan(fieldRead.getTarget());
 		PermissionSet set = new PermissionSet();
+		if (fieldRead.getTarget() != null) {
+			if (fieldRead.getTarget().getType() != null) {
+				if (fieldRead.getTarget().getType().getQualifiedName().startsWith("aeminium.runtime")) {
+					setPermissionSet(fieldRead, set);
+					return;
+				}
+			}
+		}
 		if (fieldRead.getVariable().toString().startsWith("java.lang.Math")) {
 			setPermissionSet(fieldRead, set);
 			return;

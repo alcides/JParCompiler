@@ -98,7 +98,7 @@ public class MergeSort {
 			int max = R.length;
 			int j = low;
 			for (int i = 0; i < max; i++) {
-				R[i] = A[j++];
+				R[i] = A[j+i];
 			}
 			quickSort(R, 0, R.length - 1);
 			return R;

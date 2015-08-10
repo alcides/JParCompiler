@@ -5,7 +5,7 @@
 	<property name="build.dir" value="bin" />
 	<property name="lib.dir" value="lib" />
 	<property name="dist.dir" value="dist" />
-	<property name="main-class" value="mergesort.MergeSort" />
+	<property name="main-class" value="nbody.NBody" />
 
 
 	<property name="spooned.dir" value="spooned" />

@@ -6,22 +6,27 @@ import java.util.List;
 
 import spoon.processing.AbstractProcessor;
 import spoon.reflect.code.BinaryOperatorKind;
+import spoon.reflect.code.CtArrayAccess;
 import spoon.reflect.code.CtBinaryOperator;
 import spoon.reflect.code.CtBlock;
 import spoon.reflect.code.CtConstructorCall;
 import spoon.reflect.code.CtExpression;
+import spoon.reflect.code.CtFieldRead;
 import spoon.reflect.code.CtFor;
 import spoon.reflect.code.CtIf;
 import spoon.reflect.code.CtInvocation;
 import spoon.reflect.code.CtLambda;
+import spoon.reflect.code.CtLiteral;
 import spoon.reflect.code.CtLocalVariable;
 import spoon.reflect.code.CtOperatorAssignment;
 import spoon.reflect.code.CtReturn;
 import spoon.reflect.code.CtStatement;
 import spoon.reflect.code.CtStatementList;
+import spoon.reflect.code.CtTypeAccess;
 import spoon.reflect.code.CtUnaryOperator;
 import spoon.reflect.code.CtVariableAccess;
 import spoon.reflect.code.CtVariableRead;
+import spoon.reflect.code.CtWhile;
 import spoon.reflect.code.UnaryOperatorKind;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtClass;
@@ -114,6 +119,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		}
 		if (element instanceof CtFor) {
 			fixer.scan(element.getParent()); // Hack
+
 			getPermissionSet(element);
 			getPermissionSet(element.getParent()); // Double Check
 			processFor((CtFor) element);
@@ -163,23 +169,43 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			}
 		}
 		if (end == null) return;
-		// Now we know its postinc and we have the bottom and ceiling. 
+		// Now we know its postinc and we have the bottom and ceiling.
+		
+
+		PermissionSet oldVars = getPermissionSet(element.getBody());
+		
+		// We have to remove the indexed writes and reads that are parallel
+		element.getElements((e) -> {
+			if (e instanceof CtArrayAccess) {
+				CtElement el = e;
+				while (el != element) {
+					boolean deleted = getPermissionSet(el).removeIf((p) -> p.index != null && p.index == v);
+					if (!deleted) {
+						break;
+					}
+					el = el.getParent();
+				}
+			}
+			return false;
+		});
+		
+		
 		// Next, we evaluate for write permissions inside the cycle.
 		PermissionSet vars = getPermissionSet(element.getBody());
 		int countWrites = vars.count(PermissionType.WRITE);
 		if (countWrites == 0) {
-			generateContinuousFor(element, st, end);
+			generateContinuousFor(element, st, end, type, oldVars);
 		} else if (countWrites == 1) {
-			generateContinuousForReduce(element, st, end, type);
+			generateContinuousForReduce(element, st, end, type, oldVars);
 		} else {
-			System.out.println("Not generating parallel for because of permissions");
+			System.out.println("Not generating parallel for because of permissions. " + element.getPosition());
 			vars.printSet();
 		}
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private void generateContinuousForReduce(CtFor element, CtExpression<?> st,
-			CtExpression<?> end, CtTypeReference<?> iteratorType) {
+			CtExpression<?> end, CtTypeReference<?> iteratorType, PermissionSet oldVars) {
 		PermissionSet vars = getPermissionSet(element.getBody());
 		
 		CtElement target = null;
@@ -214,7 +240,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			}
 		}
 		if (incrementReducer == null) {
-			System.out.println("Not generating because of missing +=");
+			System.out.println("Not generating because of missing +=. " + element.getPosition());
 			return;
 		}
 		
@@ -239,6 +265,10 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		CtLambda<?> lambda = (CtLambda<?>) forHelper.getArguments().get(2);
 		CtBlock<?> block = (CtBlock<?>) element.getBody();
 		setPermissionSet(lambda, new PermissionSet());
+		
+		// VarName
+		String varName = ((CtLocalVariable<?>) element.getForInit().get(0)).getSimpleName();
+		lambda.getParameters().get(0).setSimpleName(varName);
 		
 		CtLocalVariable<?> varDecl = factory.Core().createLocalVariable();
 		varDecl.setSimpleName(idRet);
@@ -265,14 +295,102 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		read.setType((CtTypeReference) returnType);
 		read.setExecutable((CtExecutableReference) hollowSetting.getType().getDeclaredExecutables().toArray()[0]);
 		update.setAssignment((CtExpression) read);
-		setPermissionSet(read, vars);
-		setPermissionSet(update, vars);
+		setPermissionSet(read, oldVars);
+		setPermissionSet(update, oldVars);
 		insertAfter(hollowSetting, update);
 	}
 
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private void generateContinuousFor(CtFor element, CtExpression<?> st,
-			CtExpression<?> end) {
-		System.out.println("Generating Continuous For");
+			CtExpression<?> end, CtTypeReference<?> iteratorType, PermissionSet oldBodyVars) {
+		Factory factory = element.getFactory();
+		factory.getEnvironment().setComplianceLevel(8);
+		
+		// Required for shadow variables
+		counterTasks++;
+				
+		CtTypeReference itType = iteratorType.box();
+		
+		PermissionSet vars = getPermissionSet(element);
+		PermissionSet oldVars = vars.copy();
+		PermissionSet bodyVars = getPermissionSet(element.getBody());
+		if (counterTasks == 8)
+			bodyVars.printSet();
+		
+		//factory.Code().createCodeSnippetStatement("aeminium.runtime.futures.codegen.ForHelper.forContinuousInt(0,1, (Integer i) -> { return null; })").compile();
+		CtInvocation hollowSetting = factory.Core().createInvocation();
+		CtTypeReference futureType = factory.Type().createReference("aeminium.runtime.futures.codegen.ForHelper");
+		CtExecutableReference<?> methodReferenceExpression = futureType.getDeclaredExecutables().stream().filter((e) -> e.getSimpleName().equals("forContinuousInt")).iterator().next();
+		
+		CtTypeAccess staticReference = factory.Core().createTypeAccess();
+		staticReference.setType(futureType);
+		hollowSetting.setTarget(staticReference);
+		
+		hollowSetting.setExecutable(methodReferenceExpression);
+		ArrayList<CtExpression<?>> args = new ArrayList<CtExpression<?>>();
+		st.addTypeCast(iteratorType);
+		end.addTypeCast(iteratorType);
+		args.add(st);
+		args.add(end);
+		CtLambda<?> lambda = factory.Core().createLambda();
+		CtParameter par = factory.Core().createParameter();
+		
+		// VarName
+		String varName = ((CtLocalVariable<?>) element.getForInit().get(0)).getSimpleName();
+		par.setSimpleName(varName);
+		par.setType(itType);
+		lambda.addParameter(par);
+		
+		
+		// Add For Body to Lambda
+		CtBlock<?> block = (CtBlock<?>) element.getBody();
+		CtReturn<?> ret = factory.Core().createReturn();
+		CtLiteral retNull = factory.Core().createLiteral();
+		retNull.setValue(null);
+		ret.setReturnedExpression(retNull);
+		block.addStatement(ret); // adds return null;
+		lambda.setBody((CtBlock) block);
+		args.add(lambda);
+		
+		// Hints
+		int c = element.getBody().getElements((e) -> (e instanceof CtWhile || e instanceof CtFor || e instanceof CtInvocation)).size();
+		CtTypeReference hintType = factory.Type().createReference("aeminium.runtime.Hints");
+		CtTypeAccess hintTypeAccess = factory.Core().createTypeAccess();
+		hintTypeAccess.setType(hintType);
+		CtFieldRead hint = factory.Core().createFieldRead();
+		CtVariableReference hintRef = factory.Core().createFieldReference();
+		hintRef.setType(hintType);
+		if (c == 0) {
+			hintRef.setSimpleName("SMALL");
+		} else {
+			hintRef.setSimpleName("LARGE");
+		}
+		hint.setTarget(hintTypeAccess);
+		hint.setVariable(hintRef);
+		setPermissionSet(hintTypeAccess, new PermissionSet());
+		setPermissionSet(hint, new PermissionSet());
+		args.add(hint);
+	
+		// Shadow Variables
+		ArrayList<CtLocalVariable<?>> lst = new ArrayList<CtLocalVariable<?>>();
+		lst.add(((CtLocalVariable<?>) element.getForInit().get(0)));
+		List<CtLocalVariable<?>> shadows = createShadowVariables(bodyVars, factory, lst);
+		replaceShadowVariables(lambda, shadows);
+	
+		// finalize
+		hollowSetting.setArguments(args);
+		element.replace(hollowSetting);
+		setPermissionSet(hollowSetting, vars);
+		for (CtLocalVariable<?> lv : shadows) {
+			hollowSetting.insertBefore(lv);
+		}
+		
+		// Fix permissions on final object
+		CtLambda<?> finalLambda = (CtLambda<?>) hollowSetting.getArguments().get(2);
+		setPermissionSet(finalLambda, oldBodyVars);
+		setPermissionSet(finalLambda.getBody().getLastStatement(), new PermissionSet());
+		setPermissionSet(hollowSetting, oldVars);
+		fixer.scan(hollowSetting);
 	}
 
 	private void processInvocation(CtInvocation<?> element) {
@@ -357,12 +475,14 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		for (CtStatement stmt : block.getStatements()) {
 			if (stmt == read) break;
 			if (stmt.getPosition() != null && stmt.getPosition().getLine() >= pos.getLine()) break;
+			
 			// Hard requirement for local variables to be declared
 			if (stmt instanceof CtLocalVariable){
 				for (Permission pi : set) if (pi.target == stmt) previousStatement = stmt;
 			}
 			// Then look for control statements
 			PermissionSet stmtSet = getPermissionSet(stmt);
+			
 			if (stmtSet.containsControl()) previousStatement = stmt;
 			// Then look for dependencies
 			for (Permission pi : set) {
@@ -389,38 +509,8 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			newFuture.addArgument(readTask);
 		}
 		
-		List<CtLocalVariable<?>> shadows = new ArrayList<CtLocalVariable<?>>();
-		for (Permission pi : set ) {
-			if (pi.target instanceof CtLocalVariable) {
-				CtLocalVariable lv = (CtLocalVariable<?>) pi.target;
-				CtLocalVariable ass = factory.Core().createLocalVariable();
-				CtVariableRead<?> r = factory.Core().createVariableRead();
-				r.setVariable(lv.getReference());
-				ass.setDefaultExpression(r);
-				ass.setSimpleName(lv.getSimpleName() + "_aeminium_" + (counterTasks-1));
-				ass.addModifier(ModifierKind.FINAL);
-				ass.setType(lv.getType());
-				shadows.add(ass);
-				setPermissionSet(r, new PermissionSet());
-				setPermissionSet(ass, new PermissionSet());
-			}
-		}
-		
-		// Replace variable accesses by shadows
-		if (shadows.size() > 0) {
-			Query.getElements(futureLambda, (e) -> {
-				if (e instanceof CtVariableAccess) {
-					CtVariableAccess<?> va = (CtVariableAccess<?>) e;
-					for (CtLocalVariable lv : shadows) {
-						String[] parts = lv.getSimpleName().split("_");
-						if (parts[0].equals(va.getVariable().getSimpleName())) {
-							va.setVariable(lv.getReference());
-						}
-					}
-				}
-				return true;
-			});
-		}
+		List<CtLocalVariable<?>> shadows = createShadowVariables(set, factory, null);
+		replaceShadowVariables(futureLambda, shadows);
 
 		if (previousStatement == null) {
 			block.insertBegin(futureAssign);
@@ -441,6 +531,50 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		// Fix broken blocks
 		fixer.scan(block.getParent());
 		fixer.scan(read.getParent(CtBlock.class).getParent());
+	}
+	
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private void replaceShadowVariables(CtLambda futureLambda,
+			List<CtLocalVariable<?>> shadows) {
+		// Replace variable accesses by shadows
+		if (shadows.size() > 0) {
+			Query.getElements(futureLambda, (e) -> {
+				if (e instanceof CtVariableAccess) {
+					CtVariableAccess<?> va = (CtVariableAccess<?>) e;
+					for (CtLocalVariable lv : shadows) {
+						String[] parts = lv.getSimpleName().split("_");
+						if (parts[0].equals(va.getVariable().getSimpleName())) {
+							va.setVariable(lv.getReference());
+						}
+					}
+				}
+				return true;
+			});
+		}
+	}
+	
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private List<CtLocalVariable<?>> createShadowVariables(PermissionSet set,
+			Factory factory, List<CtLocalVariable<?>> exceptions) {
+		List<CtLocalVariable<?>> shadows = new ArrayList<CtLocalVariable<?>>();
+		for (Permission pi : set ) {
+			if (pi.target instanceof CtLocalVariable) {
+				CtLocalVariable lv = (CtLocalVariable<?>) pi.target;
+				if (exceptions != null && exceptions.contains(lv)) continue;
+				if (shadows.contains(lv)) continue;
+				CtLocalVariable ass = factory.Core().createLocalVariable();
+				CtVariableRead<?> r = factory.Core().createVariableRead();
+				r.setVariable(lv.getReference());
+				ass.setDefaultExpression(r);
+				ass.setSimpleName(lv.getSimpleName() + "_aeminium_" + (counterTasks-1));
+				ass.addModifier(ModifierKind.FINAL);
+				ass.setType(lv.getType());
+				shadows.add(ass);
+				setPermissionSet(r, new PermissionSet());
+				setPermissionSet(ass, new PermissionSet());
+			}
+		}
+		return shadows;
 	}
 
 	private <E> boolean shouldFuturify(CtInvocation<E> element) {

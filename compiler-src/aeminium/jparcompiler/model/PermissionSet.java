@@ -14,7 +14,7 @@ public class PermissionSet extends ArrayList<Permission> {
 		if (a2 != null) {
 			for (Permission p : a2) {
 				if (!b.contains(p))
-					b.add(p);
+					b.add(p.copy());
 			}
 		}
 		return b;
@@ -23,7 +23,7 @@ public class PermissionSet extends ArrayList<Permission> {
 	public PermissionSet copy() {
 		PermissionSet p2 = new PermissionSet();
 		for (Permission p : this)
-			p2.add(p);
+			p2.add(p.copy());
 		return p2;
 	}
 

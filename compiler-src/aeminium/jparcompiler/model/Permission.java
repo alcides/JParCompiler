@@ -2,6 +2,7 @@ package aeminium.jparcompiler.model;
 
 import javax.management.RuntimeErrorException;
 
+import spoon.reflect.code.CtLocalVariable;
 import spoon.reflect.declaration.CtElement;
 
 public class Permission {
@@ -10,6 +11,7 @@ public class Permission {
 	public boolean instance;
 	public boolean control;
 	public CtElement target;
+	public CtLocalVariable<?> index;
 	
 	public Permission(PermissionType t, CtElement te) {
 		if (te == null) throw new RuntimeErrorException(null, "Target element is null");
@@ -28,7 +30,7 @@ public class Permission {
 			return true;
 		}
 		Permission p = (Permission) obj;
-		return p.type == this.type && p.instance == this.instance && p.control == this.control && p.target == this.target;
+		return p.type == this.type && p.instance == this.instance && p.control == this.control && p.target == this.target && p.index == this.index;
 	}
 	
 	@Override
@@ -46,7 +48,18 @@ public class Permission {
 		if (control) {
 			b.append(",R");
 		}
+		if (index != null) {
+			b.append(",IND_" + index.getSimpleName());
+		}
 		b.append(")");
 		return b.toString();
+	}
+
+	public Permission copy() {
+		Permission p = new Permission(type, target);
+		p.instance = this.instance;
+		p.control = this.control;
+		p.index = this.index;
+		return p;
 	}
 }

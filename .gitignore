@@ -1,4 +1,5 @@
 bin
+eclipse_bin
 spooned
 compiler/*
 *.config

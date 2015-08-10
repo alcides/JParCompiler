@@ -1,15 +1,12 @@
 package fft;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Random;
 
 import aeminium.runtime.futures.codegen.Sequential;
 
 public class FFT {
 	
-	public static int DEFAULT_SIZE = 1024*32;
+	public static int DEFAULT_SIZE = 1024*2;
 	
 	@Sequential
 	public static Complex[] createRandomComplexArray(int n) {
@@ -36,22 +33,18 @@ public class FFT {
 			size = Integer.parseInt(args[0]);
 		}
 
-		List<Complex> input = Arrays.asList(FFT.createRandomComplexArray(size, new Random(1L)));
+		Complex[] input = FFT.createRandomComplexArray(size, new Random(1L));
 
-		List<Complex> result = sequentialFFT(input);
-		System.out.println(result.get(0));
+		Complex[] result = sequentialFFT(input);
+		System.out.println(result[0]);
 	}
 
 	/* Linear Version */
-	public static List<Complex> sequentialFFT(List<Complex> x) {
-		int N = x.size();
+	public static Complex[] sequentialFFT(Complex[] x) {
+		int N = x.length;
 
 		// base case
-		if (N == 1) {
-			ArrayList<Complex> l = new ArrayList<Complex>();
-			l.add(x.get(0));
-			return l;
-		}
+		if (N == 1) return new Complex[] { x[0] };
 
 		// radix 2 Cooley-Tukey FFT
 		if (N % 2 != 0) {
@@ -59,28 +52,27 @@ public class FFT {
 		}
 
 		// fft of even terms
-		ArrayList<Complex> even = new ArrayList<Complex>();
-		for (int k = 0; k < N / 2; k++) {
-			even.add(x.get(2*k));
+		Complex[] even = new Complex[N / 2];
+		for (int k1 = 0; k1 < N / 2; k1++) {
+			even[k1] = x[2 * k1];
 		}
-		
-		// fft of even terms
-		ArrayList<Complex> odd = new ArrayList<Complex>();
+
+		// fft of odd terms
+		Complex[] odd = new Complex[N / 2];
 		for (int k = 0; k < N / 2; k++) {
-			odd.add(x.get(2*k+1));
+			odd[k] = x[2 * k + 1];
 		}
-		
-		List<Complex> q = sequentialFFT(even);
-		List<Complex> r = sequentialFFT(odd);
+		Complex[] q = sequentialFFT(even);
+		Complex[] r = sequentialFFT(odd);
 
 		// combine
 		Complex[] y = new Complex[N];
 		for (int k = 0; k < N / 2; k++) {
 			double kth = -2 * k * Math.PI / N;
 			Complex wk = new Complex(Math.cos(kth), Math.sin(kth));
-			y[k] = q.get(k).plus(wk.times(r.get(k)));
-			y[k + N / 2] = q.get(k).minus(wk.times(r.get(k)));
+			y[k] = q[k].plus(wk.times(r[k]));
+			y[k + N / 2] = q[k].minus(wk.times(r[k]));
 		}
-		return Arrays.asList(y);
+		return y;
 	}
 }

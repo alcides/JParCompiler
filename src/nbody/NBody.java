@@ -2,6 +2,8 @@ package nbody;
 
 import java.util.Random;
 
+import aeminium.runtime.futures.codegen.Sequential;
+
 /*
  * Copyright (c) 2011.  Peter Lawrey
  *
@@ -21,8 +23,8 @@ import java.util.Random;
 // run with: java  -server -XX:+TieredCompilation -XX:+AggressiveOpts nbody 50000000
 
 public class NBody {
-	public static final int DEFAULT_ITERATIONS = 5;
-	public static final int DEFAULT_SIZE = 2000;
+	public static final int DEFAULT_ITERATIONS = 1;
+	public static final int DEFAULT_SIZE = 10;
 
 	public static final int ADVANCE_THRESHOLD = 1000;
 	public static final int APPLY_THRESHOLD = 100;
@@ -66,9 +68,10 @@ public class NBody {
 			bodies.advance(0.01);
 		}
 		en = bodies.energy();
-		System.out.printf("%.9f\n", bodies.energy());
+		System.out.printf("%.9f\n", en);
 	}
 	
+	@Sequential
 	public static NBody[] generateRandomBodies(int n, long seed) {
 		Random random = new Random(seed);
 		NBody[] r = new NBody[n];
@@ -96,7 +99,7 @@ final class NBodySystem {
 		double px = 0.0;
 		double py = 0.0;
 		double pz = 0.0;
-		for (int i = 0; i < bodies.length; ++i) {
+		for (int i = 0; i < bodies.length; i++) {
 			NBody body= bodies[i];
 			px += body.vx * body.mass;
 			py += body.vy * body.mass;
@@ -106,8 +109,8 @@ final class NBodySystem {
 	}
 	
 	public void advance(double dt) {
-
-		for (int i = 0; i < bodies.length; ++i) {
+		if (dt < 0 ) bodies = null;
+		for (int i = 1; i < bodies.length; i++) {
 			NBody iBody = bodies[i];
 			for (int j = i + 1; j < bodies.length; ++j) {
 				final NBody body = bodies[j];
@@ -129,14 +132,12 @@ final class NBodySystem {
 			}
 		}
 
-		for (int i = 0; i < bodies.length; ++i) {
+		for (int i = 0; i < bodies.length; i++) {
 			NBody body= bodies[i];
 			body.x += dt * body.vx;
 			body.y += dt * body.vy;
 			body.z += dt * body.vz;
 		}
-		// Hack
-		//bodies = bodies;
 	}
 
 	public double energy() {
