@@ -210,7 +210,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		
 		CtElement target = null;
 		for (Permission p : vars) {
-			if (p.type == PermissionType.READWRITE || p.type == PermissionType.WRITE) {
+			if (p.type == PermissionType.WRITE) {
 				target = p.target;
 			}
 		}
@@ -220,7 +220,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		CtBlock<?> b = (CtBlock<?>) element.getBody();
 		for (CtStatement s : b.getStatements()) {
 			for (Permission p : vars) {
-				if ((p.type == PermissionType.READWRITE || p.type == PermissionType.WRITE) && p.target == target) {					
+				if (p.type == PermissionType.WRITE && p.target == target) {					
 					if (s instanceof CtOperatorAssignment) {
 						CtOperatorAssignment<?,?> ass = (CtOperatorAssignment<?,?>) s;
 						if (ass.getKind() == BinaryOperatorKind.PLUS) {
@@ -448,7 +448,12 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		read.setTarget(factory.Code().createVariableRead(factory.Code().createLocalVariableReference(futureAssign), false));
 		read.setArguments(new ArrayList<CtExpression<?>>());
 		read.setType(element.getType());
-		read.setExecutable((CtExecutableReference<E>) futureAssign.getType().getSuperclass().getDeclaredExecutables().toArray()[0]);
+		
+		CtExecutableReference refGet = null;
+		for (CtExecutableReference r : futureAssign.getType().getSuperclass().getDeclaredExecutables()) {
+			if (r.getSimpleName().equals("get")) refGet = r;
+		}
+		read.setExecutable(refGet);
 		if (!(element.getParent() instanceof CtBlock)) read.addTypeCast(originalType);
 		setPermissionSet(read, set.copy());
 		element.replace((CtExpression<E>) read);

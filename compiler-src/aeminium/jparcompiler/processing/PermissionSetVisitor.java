@@ -331,10 +331,22 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 	}
 
 	public void visitCtForEach(CtForEach foreach) {
-		// TODO
 		scan(foreach.getVariable());
 		scan(foreach.getExpression());
 		scan(foreach.getBody());
+		PermissionSet b = getPermissionSet(foreach.getBody()).copy();
+		boolean hasWrites = b.removeIf( (p) -> p.target == foreach.getVariable() && (p.type == PermissionType.WRITE || p.type == PermissionType.WRITE));
+		b.removeTarget(foreach.getVariable()); // Remove Reads
+		if (hasWrites) {
+			PermissionSet ws = getPermissionSet(foreach.getExpression()).copy();
+			for (Permission p : ws) {
+				p.type = PermissionType.WRITE;
+			}
+			b = b.merge(ws);
+		} else {
+			b = b.merge(getPermissionSet(foreach.getExpression()));	
+		}
+		setPermissionSet(foreach, b);
 	}
 
 	public void visitCtIf(CtIf ifElement) {
@@ -355,30 +367,29 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 	}
 
 	public <T> void visitCtInvocation(CtInvocation<T> invocation) {
-		PermissionSet parset = new PermissionSet();
+		PermissionSet invocationSet = new PermissionSet();
 		
 		if (invocation.getTarget() != null) {
 			scan(invocation.getTarget());
-			PermissionSet tset = getPermissionSet(invocation.getTarget());
-			// CheckForDefaults
-			tset = checkForDefaults(tset, invocation.getExecutable());
-			if (tset != null) {
-				parset = parset.merge(tset);
-			}
+		}
+		for (CtExpression<?> arg : invocation.getArguments()) {
+			scan(arg);
+		}
+		checkForDefaults(invocation);
+		
+		if (invocation.getTarget() != null) {
+			invocationSet = invocationSet.merge(getPermissionSet(invocation.getTarget()));
 		}
 		
-		for(int i = 0; i < invocation.getArguments().size();i++){
-			CtExpression<?> arg_i = invocation.getArguments().get(i);
-			scan(arg_i);
-			parset = parset.merge(getPermissionSet(arg_i));
+		for (CtExpression<?> arg : invocation.getArguments()) {
+			invocationSet = invocationSet.merge(getPermissionSet(arg));
 		}
-		PermissionSet set = parset.copy();
 		
 		scan(invocation.getExecutable());
 		CtElement target = getDeclarationOf(invocation.getExecutable());
 		if (target != null) {
-			Permission acess = new Permission(PermissionType.READ, target);
-			set.add(acess);
+			Permission access = new Permission(PermissionType.READ, target);
+			invocationSet.add(access);
 			CtMethod<?> meth = (CtMethod<?>) target;
 			if (meth == invocation.getParent(CtMethod.class) || stackCheck.contains(meth)) {
 				// Use parset only in recursive calls
@@ -400,15 +411,17 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 						if (meth.getParameters().contains(p.target)) {
 							int index = meth.getParameters().indexOf(p.target);
 							Permission p2 = new Permission(p.type, invocation.getArguments().get(index));
-							set.add(p2);
+							invocationSet.add(p2);
 						}
 					} else {
-						set.add(p);
+						invocationSet.add(p);
 					}
 				}
+				
 			}
-		}		
-		setPermissionSet(invocation, set);
+		}
+		setPermissionSet(invocation, invocationSet);
+		
 	}
 
 	public <T> void visitCtLiteral(CtLiteral<T> literal) {
@@ -693,14 +706,17 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 		if (r.getDeclaringType() != null && r.getDeclaringType().getDeclaration() != null) return r.getDeclaringType().getDeclaration();
 		return null;
 	}
-	private PermissionSet checkForDefaults (PermissionSet set, CtExecutableReference<?> ref) {
-		if (ref == null) return set;
-		if (ref.toString().startsWith("java.util.ArrayList") && ref.toString().endsWith(".add")) {
-			set = set.copy();
-			for (Permission p : set) {
-				if (p.type == PermissionType.READ) p.type = PermissionType.READWRITE;
+	
+	private void checkForDefaults (CtInvocation<?> inv) {
+		CtExecutableReference<?> ref = inv.getExecutable(); 
+		if (ref == null) return;
+		if (ref.toString().startsWith("java.util.") && (ref.toString().endsWith(".add") || ref.toString().endsWith(".remove"))) {
+			PermissionSet target = getPermissionSet(inv.getTarget()).copy();
+			for (Permission p : target) {
+				if (p.type == PermissionType.READ) p.type = PermissionType.WRITE;
 			}
+			setPermissionSet(inv.getTarget(), target);
+			return;
 		}
-		return set;
 	}
 }
