@@ -295,11 +295,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		read.setTarget(factory.Code().createVariableRead(hollowSetting.getReference(), false));
 		read.setArguments(new ArrayList<CtExpression<?>>());
 		read.setType((CtTypeReference) returnType);
-		CtExecutableReference refGet = null;
-		for (CtExecutableReference r : hollowSetting.getType().getSuperclass().getDeclaredExecutables()) {
-			if (r.getSimpleName().equals("get")) refGet = r;
-		}
-		read.setExecutable(refGet);
+		read.setExecutable(getExecutableReferenceOfMethodByName(hollowSetting.getType(), "get"));
 		update.setAssignment((CtExpression) read);
 		setPermissionSet(read, oldVars);
 		setPermissionSet(update, oldVars);
@@ -453,11 +449,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		read.setArguments(new ArrayList<CtExpression<?>>());
 		read.setType(element.getType());
 		
-		CtExecutableReference refGet = null;
-		for (CtExecutableReference r : futureAssign.getType().getSuperclass().getDeclaredExecutables()) {
-			if (r.getSimpleName().equals("get")) refGet = r;
-		}
-		read.setExecutable(refGet);
+		read.setExecutable((CtExecutableReference<E>) getExecutableReferenceOfMethodByName(futureAssign.getType(), "get"));
 		if (!(element.getParent() instanceof CtBlock)) read.addTypeCast(originalType);
 		setPermissionSet(read, set.copy());
 		element.replace((CtExpression<E>) read);
@@ -544,6 +536,27 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		// Fix broken blocks
 		fixer.scan(block.getParent());
 		fixer.scan(read.getParent(CtBlock.class).getParent());
+	}
+
+	
+	@SuppressWarnings("rawtypes")
+	private CtExecutableReference getExecutableReferenceOfMethodByName(
+			CtTypeReference<?> t, String name) {
+		CtExecutableReference<?> refGet = null;
+		do {
+			if (t.getDeclaredExecutables() != null) {
+				for (CtExecutableReference<?> r : t.getDeclaredExecutables()) {
+					if (r.getSimpleName().
+							equals(name)) refGet = r;
+					
+				}
+			}
+			t = t.getSuperclass();
+		} while (refGet == null && t != null);
+		if (refGet == null) {
+			throw new RuntimeException("No method" + name + " in type " + t );
+		}
+		return refGet;
 	}
 	
 	@SuppressWarnings({ "rawtypes", "unchecked" })
