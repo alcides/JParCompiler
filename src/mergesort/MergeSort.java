@@ -10,7 +10,7 @@ import aeminium.runtime.futures.codegen.Sequential;
 
 public class MergeSort {
 
-	public boolean validationTest;
+	public boolean validationTest = false;
 
 	// Cutoff for when to do sequential versus parallel merges
 	public static int MERGE_SIZE;
@@ -35,7 +35,9 @@ public class MergeSort {
 		if (args.length > 1) {
 			sort.validationTest = true;
 		}
+		long t = System.nanoTime();
 		sort.run(problemSize);
+		System.out.println("% " + ((double) (System.nanoTime() - t) / (1000 * 1000 * 1000)));
 	}
 
 	public MergeSort() {
@@ -57,7 +59,8 @@ public class MergeSort {
 		int output[] = sort(input, 0, input.length);
 		long endT = System.currentTimeMillis();
 		System.out.println("running time=" + (endT - startT));
-		checkSorted(output);
+		if (validationTest)
+			checkSorted(output);
 	}
 
 	@Sequential

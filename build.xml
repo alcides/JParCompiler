@@ -6,6 +6,7 @@
 	<property name="lib.dir" value="lib" />
 	<property name="dist.dir" value="dist" />
 	<property name="main-class" value="health.Health" />
+	<property name="seq.build.dir" value="seq-bin" />
 
 
 	<property name="spooned.dir" value="spooned" />
@@ -65,6 +66,25 @@
 	<target name="main" depends="compile">
 	</target>
 	
+	<target name="compile-seq">
+		<mkdir dir="${seq.build.dir}" />
+		<javac srcdir="${src.dir}" destdir="${seq.build.dir}" classpathref="classpath" debug="true" />
+	</target>
+	
+	<target name="jar-seq" depends="compile-seq">
+		<mkdir dir="${dist.dir}" />
+		<jar destfile="${dist.dir}/SequentialExamples.jar">
+		   <fileset dir="${seq.build.dir}/" />
+		   <manifest>
+			 <!-- Who is building this jar? -->
+			 <attribute name="Built-By" value="${user.name}"/>
+			 <!-- Information about the program itself -->
+			 <attribute name="Implementation-Vendor" value="Aeminium Project"/>
+			 <attribute name="Implementation-Title" value="JPar Examples"/>
+		   </manifest>
+		</jar>
+	</target>
+	
 	<target name="fetchruntime">
 		<exec executable="ant" dir="../AeminiumRuntime/">
 			<arg value="jar" />
@@ -101,7 +121,7 @@
 			 <attribute name="Implementation-Vendor" value="Aeminium Project"/>
 			 <attribute name="Implementation-Title" value="JPar Examples"/>
 		   </manifest>
-		  </jar>
-		</target>
+		</jar>
+	</target>
 
 </project>

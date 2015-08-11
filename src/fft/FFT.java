@@ -6,7 +6,7 @@ import aeminium.runtime.futures.codegen.Sequential;
 
 public class FFT {
 	
-	public static int DEFAULT_SIZE = 1024*2;
+	public static int DEFAULT_SIZE = 1024*1024;
 	
 	@Sequential
 	public static Complex[] createRandomComplexArray(int n) {
@@ -34,8 +34,9 @@ public class FFT {
 		}
 
 		Complex[] input = FFT.createRandomComplexArray(size, new Random(1L));
-
+		long t = System.nanoTime();
 		Complex[] result = sequentialFFT(input);
+		System.out.println("% " + ((double) (System.nanoTime() - t) / (1000 * 1000 * 1000)));
 		System.out.println(result[0]);
 	}
 

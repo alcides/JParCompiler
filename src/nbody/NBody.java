@@ -62,12 +62,14 @@ public class NBody {
 		}
 
 		NBodySystem bodies = new NBodySystem(NBody.generateRandomBodies(size, 1L));
+		long t = System.nanoTime();
 		double en = bodies.energy();
 		System.out.printf("%.9f\n", en);
 		for (int i = 0; i < n; ++i) {
 			bodies.advance(0.01);
 		}
 		en = bodies.energy();
+		System.out.println("% " + ((double) (System.nanoTime() - t) / (1000 * 1000 * 1000)));
 		System.out.printf("%.9f\n", en);
 	}
 	

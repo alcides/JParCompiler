@@ -28,15 +28,23 @@ public class Health {
 	public static void main(String[] args) {
 
 		int size = Health.sim_time;
+		int level = Health.sim_level;
+		
 		if (args.length > 0) {
-			size = Integer.parseInt(args[0]);
+			level = Integer.parseInt(args[0]);
+		}
+		
+		if (args.length > 1) {
+			size = Integer.parseInt(args[1]);
 		}
 
-		Village village = Health.allocate_village(Health.sim_level, 0, null);
+		Village village = Health.allocate_village(level, 0, null);
 
+		long t = System.nanoTime();
 		for (int i=0; i<size; i++) {
 			sim_village(village);
 		}
+		System.out.println("% " + ((double) (System.nanoTime() - t) / (1000 * 1000 * 1000)));
 		
 	}
 

@@ -22,10 +22,15 @@ public class Integrate {
 			double exp = Double.parseDouble(args[0]);
 			Integrate.errorTolerance = Math.pow(10, -exp);
 		}
-
+		
+		if (args.length > 1) {
+			Integrate.end = Double.parseDouble(args[1]);
+		}
 		double fs = Integrate.computeFunction(Integrate.start);
 		double fe = Integrate.computeFunction(Integrate.end);
+		long t = System.nanoTime();
 		double a = recEval(Integrate.start, Integrate.end, fs, fe, 0);
+		System.out.println("% " + ((double) (System.nanoTime() - t) / (1000 * 1000 * 1000)));
 		System.out.println("Integral: " + a);
 	}
 

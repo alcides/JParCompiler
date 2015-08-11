@@ -12,6 +12,7 @@ public class Pi {
 		if (args.length > 0) dartsc = Integer.parseInt(args[0]);
 		
 		Random random = new Random(1L);
+		long t = System.nanoTime();
 		long score = 0;
 		for (long n = 0; n < dartsc; n++) {
 			/* generate random numbers for x and y coordinates */
@@ -26,6 +27,7 @@ public class Pi {
 			score += inc;
 		}
 		double d = 4.0 * (double) score / (double) dartsc;
+		System.out.println("% " + ((double) (System.nanoTime() - t) / (1000 * 1000 * 1000)));
 		System.out.println("PI = " + d);
 	}
 }

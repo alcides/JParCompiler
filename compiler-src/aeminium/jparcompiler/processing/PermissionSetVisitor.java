@@ -718,5 +718,10 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 			setPermissionSet(inv.getTarget(), target);
 			return;
 		}
+		if (ref.toString().contains("nanoTime")) {
+			PermissionSet target = getPermissionSet(inv.getTarget());
+			target.add(new Permission(PermissionType.WRITE, out));
+			setPermissionSet(inv.getTarget(), target);
+		}
 	}
 }
