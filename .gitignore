@@ -4,3 +4,4 @@ spooned
 compiler/*
 *.config
 logs
+dist
