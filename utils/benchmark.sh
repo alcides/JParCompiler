@@ -7,3 +7,4 @@ run blackscholes.BlackScholes
 run fft.FFT
 run mergesort.MergeSort
 run nbody.NBody
+run pi.Pi
