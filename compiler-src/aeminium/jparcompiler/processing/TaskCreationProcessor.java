@@ -295,7 +295,11 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		read.setTarget(factory.Code().createVariableRead(hollowSetting.getReference(), false));
 		read.setArguments(new ArrayList<CtExpression<?>>());
 		read.setType((CtTypeReference) returnType);
-		read.setExecutable((CtExecutableReference) hollowSetting.getType().getDeclaredExecutables().toArray()[0]);
+		CtExecutableReference refGet = null;
+		for (CtExecutableReference r : hollowSetting.getType().getSuperclass().getDeclaredExecutables()) {
+			if (r.getSimpleName().equals("get")) refGet = r;
+		}
+		read.setExecutable(refGet);
 		update.setAssignment((CtExpression) read);
 		setPermissionSet(read, oldVars);
 		setPermissionSet(update, oldVars);
