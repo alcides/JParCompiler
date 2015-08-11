@@ -407,12 +407,7 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 					}
 				}
 			}
-		}
-		if (invocation.getExecutable().getSimpleName().startsWith("advance")) {
-			System.out.println("Advance perms");
-			set.printSet();
-		}
-		
+		}		
 		setPermissionSet(invocation, set);
 	}
 

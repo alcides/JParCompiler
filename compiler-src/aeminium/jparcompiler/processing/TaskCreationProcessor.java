@@ -249,13 +249,14 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		factory.getEnvironment().setComplianceLevel(8);
 		CtTypeReference<?> returnType = stToChange.getType();
 		CtTypeReference<?> returnTypeBoxed = returnType.box();
+		CtTypeReference<?> boxedIterType = iteratorType.box();
 		
 		// Backup assign
 		CtOperatorAssignment<?, ?> update = (CtOperatorAssignment<?, ?>) CopyCatFactory.clone(stToChange);
 		
 		String id = "aeminium_for_tmp_" + counterTasks++;
 		String idRet = "aeminium_for_ret_" + counterTasks++;
-		CtLocalVariable<?> hollowSetting = factory.Code().createCodeSnippetStatement("aeminium.runtime.futures.HollowFuture<" + returnTypeBoxed + "> " + id + " = aeminium.runtime.futures.codegen.ForHelper.forContinuousIntReduce1(0,1, (Integer i) -> { return null; }, null)").compile();
+		CtLocalVariable<?> hollowSetting = factory.Code().createCodeSnippetStatement("aeminium.runtime.futures.HollowFuture<" + returnTypeBoxed + "> " + id + " = aeminium.runtime.futures.codegen.ForHelper.forContinuous" + boxedIterType.getSimpleName() + "Reduce1(0,1, (" + boxedIterType + " i) -> { return null; }, null)").compile();
 		CtInvocation<?> forHelper = (CtInvocation<?>) hollowSetting.getDefaultExpression();
 		ArrayList<CtExpression<?>> args = new ArrayList<CtExpression<?>>();
 		st.addTypeCast(iteratorType);
@@ -264,7 +265,6 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		args.add(end);
 		CtLambda<?> lambda = (CtLambda<?>) forHelper.getArguments().get(2);
 		CtBlock<?> block = (CtBlock<?>) element.getBody();
-		setPermissionSet(lambda, new PermissionSet());
 		
 		// VarName
 		String varName = ((CtLocalVariable<?>) element.getForInit().get(0)).getSimpleName();
@@ -286,6 +286,8 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		args.add(incrementReducer);
 		forHelper.setArguments(args);
 		element.replace(hollowSetting);
+		
+		setPermissionSet(lambda, new PermissionSet());
 		setPermissionSet(hollowSetting, vars);
 		
 		// future.get()
@@ -309,7 +311,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		// Required for shadow variables
 		counterTasks++;
 				
-		CtTypeReference itType = iteratorType.box();
+		CtTypeReference boxedIterType = iteratorType.box();
 		
 		PermissionSet vars = getPermissionSet(element);
 		PermissionSet oldVars = vars.copy();
@@ -317,10 +319,12 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		if (counterTasks == 8)
 			bodyVars.printSet();
 		
+		
+		
 		//factory.Code().createCodeSnippetStatement("aeminium.runtime.futures.codegen.ForHelper.forContinuousInt(0,1, (Integer i) -> { return null; })").compile();
 		CtInvocation hollowSetting = factory.Core().createInvocation();
 		CtTypeReference futureType = factory.Type().createReference("aeminium.runtime.futures.codegen.ForHelper");
-		CtExecutableReference<?> methodReferenceExpression = futureType.getDeclaredExecutables().stream().filter((e) -> e.getSimpleName().equals("forContinuousInt")).iterator().next();
+		CtExecutableReference<?> methodReferenceExpression = futureType.getDeclaredExecutables().stream().filter((e) -> e.getSimpleName().equals("forContinuous" + boxedIterType.getSimpleName())).iterator().next();
 		
 		CtTypeAccess staticReference = factory.Core().createTypeAccess();
 		staticReference.setType(futureType);
@@ -338,7 +342,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		// VarName
 		String varName = ((CtLocalVariable<?>) element.getForInit().get(0)).getSimpleName();
 		par.setSimpleName(varName);
-		par.setType(itType);
+		par.setType(boxedIterType);
 		lambda.addParameter(par);
 		
 		
@@ -579,6 +583,9 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 
 	private <E> boolean shouldFuturify(CtInvocation<E> element) {
 		if (Safety.isSafe(element.getExecutable().getDeclaration())) {
+			return true;
+		}
+		if (element.getExecutable().toString().startsWith("java.util.Random")) {
 			return true;
 		}
 		if (element.getExecutable().toString().equals("java.io.PrintStream.println")) {
