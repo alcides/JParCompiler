@@ -256,7 +256,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		
 		String id = "aeminium_for_tmp_" + counterTasks++;
 		String idRet = "aeminium_for_ret_" + counterTasks++;
-		CtLocalVariable<?> hollowSetting = factory.Code().createCodeSnippetStatement("aeminium.runtime.futures.HollowFuture<" + returnTypeBoxed + "> " + id + " = aeminium.runtime.futures.codegen.ForHelper.forContinuous" + boxedIterType.getSimpleName() + "Reduce1(0,1, (" + boxedIterType + " i) -> { return null; }, null)").compile();
+		CtLocalVariable<?> hollowSetting = factory.Code().createCodeSnippetStatement("aeminium.runtime.futures.HollowFuture<" + returnTypeBoxed + "> " + id + " = aeminium.runtime.futures.codegen.ForHelper.forContinuous" + boxedIterType.getSimpleName() + "Reduce1(0,1, (" + boxedIterType + " i) -> { return null; }, null, aeminium.runtime.Hints.LARGE)").compile();
 		CtInvocation<?> forHelper = (CtInvocation<?>) hollowSetting.getDefaultExpression();
 		ArrayList<CtExpression<?>> args = new ArrayList<CtExpression<?>>();
 		st.addTypeCast(iteratorType);
@@ -284,9 +284,29 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		lambda.setBody((CtBlock) block);
 		args.add(lambda);
 		args.add(incrementReducer);
+		
+		// Hints
+		int c = element.getBody().getElements((e) -> (e instanceof CtWhile || e instanceof CtFor || e instanceof CtInvocation)).size();
+		CtTypeReference hintType = factory.Type().createReference("aeminium.runtime.Hints");
+		CtTypeAccess hintTypeAccess = factory.Core().createTypeAccess();
+		hintTypeAccess.setType(hintType);
+		CtFieldRead hint = factory.Core().createFieldRead();
+		CtVariableReference hintRef = factory.Core().createFieldReference();
+		hintRef.setType(hintType);
+		if (c == 0) {
+			hintRef.setSimpleName("SMALL");
+		} else {
+			hintRef.setSimpleName("LARGE");
+		}
+		hint.setTarget(hintTypeAccess);
+		hint.setVariable(hintRef);
+		setPermissionSet(hintTypeAccess, new PermissionSet());
+		setPermissionSet(hint, new PermissionSet());
+		args.add(hint);
+		
+		
 		forHelper.setArguments(args);
 		element.replace(hollowSetting);
-		
 		setPermissionSet(lambda, new PermissionSet());
 		setPermissionSet(hollowSetting, vars);
 		
