@@ -2,6 +2,8 @@ source utils/execute.sh
 
 compile_seq
 
+CONFIGNAME='sequential'
+
 test seq_blackscholes 	runseq blackscholes.BlackScholes 100000
 test seq_fft			runseq fft.FFT $[16*1024*1024]
 test seq_fib			runseq fib.Fib 51

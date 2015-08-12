@@ -3,6 +3,9 @@ source utils/execute.sh
 compile
 
 if [ -z "$CONFIG" ]; then 
+	echo "Running default config"
+	CONFIGNAME="default"
+else
 	echo "Using config: $CONFIG";
 	cp $CONFIG aeminiumrt.config
 fi

@@ -19,11 +19,14 @@ function runseq() {
 }
 
 function test() {
-for i in {1..2}
-do
-	echo "Running $1"
-	${*:2} >> results_$1.log
-done
+	mkdir -p results
+	for i in {1..2}
+	do
+		echo "Running $1 - $CONFIGNAME"
+		${*:2} >> results/$1_$CONFIGNAME.log
+	done
+}
 
-
+function run_config() {
+	CONFIGNAME=$1 CONFIG=$2 bash utils/benchmark.sh
 }
