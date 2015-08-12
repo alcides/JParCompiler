@@ -21,7 +21,8 @@ function runseq() {
 function test() {
 for i in {1..2}
 do
-	${*:2} >> results_$1.log
+	echo "Running $1"
+	timeout 5m ${*:2} >> results_$1.log
 done
 
 

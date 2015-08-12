@@ -2,6 +2,11 @@ source utils/execute.sh
 
 compile
 
+if [ -z "$CONFIG" ]; then 
+	echo "Using config: $CONFIG";
+	cp $CONFIG aeminiumrt.config
+fi
+
 test par_blackscholes 	run blackscholes.BlackScholes 100000
 test par_fft			run fft.FFT $[16*1024*1024]
 test par_fib			run fib.Fib 51
