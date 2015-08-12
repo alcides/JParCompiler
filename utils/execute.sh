@@ -10,19 +10,19 @@ function compile_seq() {
 
 
 function run() {
-	java -Xmx24G -cp dist/AeminiumRuntime.jar:dist/AeminiumFutures.jar:dist/JparCompilerExamples.jar $@
+	timeout 5m java -Xmx24G -cp dist/AeminiumRuntime.jar:dist/AeminiumFutures.jar:dist/JparCompilerExamples.jar $@
 }
 
 
 function runseq() {
-	java -Xmx24G -cp dist/AeminiumRuntime.jar:dist/AeminiumFutures.jar:dist/SequentialExamples.jar $@
+	timeout 5m java -Xmx24G -cp dist/AeminiumRuntime.jar:dist/AeminiumFutures.jar:dist/SequentialExamples.jar $@
 }
 
 function test() {
 for i in {1..2}
 do
 	echo "Running $1"
-	timeout 5m ${*:2} >> results_$1.log
+	${*:2} >> results_$1.log
 done
 
 
