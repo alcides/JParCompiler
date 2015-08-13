@@ -1,14 +1,6 @@
-source utils/execute.sh
+source utils/library.sh
 
 compile
-
-if [ -z "$CONFIG" ]; then 
-	echo "Running default config"
-	CONFIGNAME="default"
-else
-	echo "Using config: $CONFIG";
-	cp $CONFIG aeminiumrt.config
-fi
 
 test par_blackscholes 	run blackscholes.BlackScholes 100000
 test par_fft			run fft.FFT $[16*1024*1024]

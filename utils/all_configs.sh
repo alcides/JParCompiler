@@ -1,11 +1,11 @@
-source utils/execute.sh
+source utils/library.sh
 
-run_config atc3l14 ~/Code/testconfigs/configs/atc3l14.config
-run_config loadbased ~/Code/testconfigs/configs/loadbased.config
-run_config maxlevel12 ~/Code/testconfigs/configs/maxlevel12.config
-run_config maxtasks3 ~/Code/testconfigs/configs/maxtasks3.config
-run_config maxtasks3ss16 ~/Code/testconfigs/configs/maxtasks3ss16.config
-run_config maxtasksinqueue3 ~/Code/testconfigs/configs/maxtasksinqueue3.config
-run_config stacksize16 ~/Code/testconfigs/configs/stacksize16.config
-run_config surplus3 ~/Code/testconfigs/configs/surplus3.config	
-run_config sysmon2_70_70 ~/Code/testconfigs/configs/sysmon2_70_70.config	
+ATC=3 LEVEL=12 run_config atc3l12_nocache
+LOADBASED=1 run_config loadbased_nocache
+MAXLEVEL=12 run_config maxlevel12_nocache
+MAXTASKS=3 run_config maxtasks3_nocache
+MAXTASKSSS=3 SS=16 run_config maxtasks3ss16_nocache
+MAXTASKINQ=3 run_config maxtaskinqueue3_nocache
+STACKSIZE=16 run_config stacksize16_nocache
+SURPLUS=3 run_config surplus3_nocache
+SYSMON=70 MEM=70 run_config sysmon2-70-70_nocache
