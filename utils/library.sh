@@ -32,26 +32,26 @@ function make_config() {
 	cp utils/aeminiumrt.config .
 	
 	if [ -z "$BINARYSPLIT" ]; then
-		$BINARYSPLIT="false"
+		BINARYSPLIT="false"
 	fi
 	echo "Binary split: $BINARYSPLIT"
 	echo "ForHelper.BinarySplitting = $BINARYSPLIT" >> aeminiumrt.config
 	
 	if [ -z "$PPS" ]; then
-		$PPS="false"
+		PPS="false"
 	fi
 	echo "PPS: $PPS"
 	echo "ForTask.LazyBinarySplittingPPS = $PPS" >> aeminiumrt.config
 	
 	if [ -z "$CACHE" ]; then
-		$CACHE="0"
+		CACHE="0"
 	fi
 	echo "Cache: $CACHE"
 	echo "ImplicitWorkStealingRuntime.parallelizeCacheSize = $CACHE" >> aeminiumrt.config
 	
 	if [ -z "TIMER" ]; then
-		$USETIMER="false"
-		$TIMER="0"
+		USETIMER="false"
+		TIMER="0"
 	fi
 	echo "Timer: $TIMER"
 	echo "ImplicitWorkStealingRuntime.parallelizeUseTimer = $USETIMER" >> aeminiumrt.config
