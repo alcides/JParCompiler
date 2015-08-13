@@ -116,5 +116,6 @@ function make_config() {
 }
 
 function run_config() {	
+	make_config
 	CONFIGNAME=$1 bash utils/benchmark.sh
 }
