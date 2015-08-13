@@ -38,7 +38,7 @@ function make_config() {
 	echo "ForHelper.BinarySplitting = $BINARYSPLIT" >> aeminiumrt.config
 	
 	if [ -z "$PPS" ]; then
-		PPS="false"
+		PPS="3"
 	fi
 	echo "PPS: $PPS"
 	echo "ForTask.LazyBinarySplittingPPS = $PPS" >> aeminiumrt.config
@@ -49,7 +49,7 @@ function make_config() {
 	echo "Cache: $CACHE"
 	echo "ImplicitWorkStealingRuntime.parallelizeCacheSize = $CACHE" >> aeminiumrt.config
 	
-	if [ -z "TIMER" ]; then
+	if [ -z "$TIMER" ]; then
 		USETIMER="false"
 		TIMER="0"
 	fi
@@ -59,7 +59,7 @@ function make_config() {
 	
 	
 	if [ -n "$ATC" ]; then
-		echo "MaxTasks with SS: $ATC with $LEVEL"
+		echo "ATC: $ATC with $LEVEL"
 		echo "DeciderFactory.implementation = aeminium.runtime.implementations.implicitworkstealing.decider.ATC" >> aeminiumrt.config
 		echo "ATC.maxTotalTasksPerCoreThreshold = $ATC" >> aeminiumrt.config
 		echo "ATC.maxLevelThreshold = $LEVEL" >> aeminiumrt.config
