@@ -50,7 +50,11 @@ public class AeFib {
 	
 	public static long par_parFib(long n) {
 		if (n <= 2) return 1;
-		FBody<Long> t1 = createTask(new parFibBody(n-1));
+		FBody<Long> t1 = createTask(new FBody<Long>() {
+			public void execute(Runtime rt, Task current) throws Exception {
+				this.setResult((rt.parallelize(current)) ? par_parFib(n-1) : seq_parFib(n-1));
+			}
+		});
 		FBody<Long> t2 = createTask(new parFibBody(n-2));
 		return t1.get() + t2.get();
 	}
