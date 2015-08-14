@@ -62,6 +62,22 @@ public class AeFib {
 			this.t = current;
 			this.ret = parFib(a);
 		}
+		
+		public long parFib(long n) {
+			if (RuntimeManager.shouldSeq()) {
+				return seqFib(n);
+			}
+			if (n <= 2) return 1;
+			FBody<Long> t1 = createTask(new parFibBody(n-1));
+			FBody<Long> t2 = createTask(new parFibBody(n-2));
+			return t1.get() + t2.get();
+		}
+		
+		
+		public long seqFib(long n) {
+			if (n <= 2) return 1;
+			else return (seqFib(n - 1) + seqFib(n - 2));
+		}
 	}
 	
 
