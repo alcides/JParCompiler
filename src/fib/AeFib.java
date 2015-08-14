@@ -12,24 +12,16 @@ import aeminium.runtime.futures.codegen.Sequential;
 @Sequential
 public class AeFib {
 	
-	public abstract static class FBody<T> implements Body {
-		@Override
-		public void execute(Runtime rt, Task current) {
-			current.setResult(evaluate(current));
-		}
-		public abstract T evaluate(Task t);
-	}
-	
-	public static Task createTask(Body b, Task... ts) {
+	public static <T> FBody<T> createTask(FBody<T> b, Task... ts) {
 		Task t = RuntimeManager.rt.createNonBlockingTask(b, Runtime.NO_HINTS);
 		RuntimeManager.rt.schedule(t, Runtime.NO_PARENT, Arrays.asList(ts));
-		return t;
+		return b;
 	}
 	
-	public static Task createTask(Body b) {
+	public static <T> FBody<T> createTask(FBody<T> b) {
 		Task t = RuntimeManager.rt.createNonBlockingTask(b, Runtime.NO_HINTS);
 		RuntimeManager.rt.schedule(t, Runtime.NO_PARENT, Runtime.NO_DEPS);
-		return t;
+		return b;
 	}
 	
 	public static long seqFib(long n) {
@@ -42,15 +34,23 @@ public class AeFib {
 			return seqFib(n);
 		}
 		if (n <= 2) return 1;
-		Task t1 = createTask(new parFibBody(n-1));
-		Task t2 = createTask(new parFibBody(n-2));
-		long v1 = (long) t1.getResult();
-		long v2 = (long) t2.getResult();
-		return v1 + v2;
+		FBody<Long> t1 = createTask(new parFibBody(n-1));
+		FBody<Long> t2 = createTask(new parFibBody(n-2));
+		return t1.get() + t2.get();
+	}
+	
+	public static abstract class FBody<T> implements Body{
+		Task t;
+		T ret;
+		
+		public T get() {
+			t.getResult();
+			return ret;
+		}
 	}
 	
 	
-	public static class parFibBody implements Body {
+	public static class parFibBody extends FBody<Long> {
 
 		long a;
 		public parFibBody(long a) {
@@ -59,7 +59,8 @@ public class AeFib {
 		
 		@Override
 		public void execute(Runtime rt, Task current) throws Exception {
-			current.setResult(parFib(a));
+			this.t = current;
+			this.ret = parFib(a);
 		}
 	}
 	
