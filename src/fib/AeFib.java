@@ -53,7 +53,10 @@ public class AeFib {
 
 	public static void main(String[] args) {
 
-		int fib = Integer.parseInt(args[0]);
+		int fib = 20;
+		if (args.length > 0) {
+			fib = Integer.parseInt(args[0]);
+		}
 
 		RuntimeManager.init();
 		long t = System.nanoTime();
