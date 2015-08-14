@@ -26,10 +26,10 @@ public class AeFib {
 		@Override
 		public void execute(Runtime rt, Task current) {
 			if (!rt.parallelize(current)) {
-				current.setResult(seqFib(value));
+				current.setResult((long) seqFib(value));
 			} else {
 				if (value <= 2) {
-					current.setResult(1);
+					current.setResult((long) 1);
 					return;
 				}
 
@@ -41,8 +41,8 @@ public class AeFib {
 				Task t2 = rt.createNonBlockingTask(b2, Hints.RECURSION);
 				rt.schedule(t2, Runtime.NO_PARENT, Runtime.NO_DEPS);
 
-				value = (Long) t1.getResult() + (Long) t2.getResult();
-				current.setResult(value);
+				value = (long) t1.getResult() + (long) t2.getResult();
+				current.setResult((long) value);
 			}
 		}
 	}
@@ -56,7 +56,7 @@ public class AeFib {
 		FibBody body = new AeFib.FibBody(fib);
 		Task t1 = RuntimeManager.rt.createNonBlockingTask(body, Runtime.NO_HINTS);
 		RuntimeManager.rt.schedule(t1, Runtime.NO_PARENT, Runtime.NO_DEPS);
-		long v = (Long) t1.getResult();
+		long v = (long) t1.getResult();
 		java.lang.System.out.println(("% " + (((double)(((System.nanoTime()) - t))) / ((1000 * 1000) * 1000))));
 		System.out.println("R: " + v);
 		RuntimeManager.shutdown();
