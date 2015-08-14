@@ -55,10 +55,14 @@ public class AeFib {
 		Runtime rt = Factory.getRuntime();
 
 		rt.init();
+		long t = System.nanoTime();
 		FibBody body = new AeFib.FibBody(fib);
 		Task t1 = rt.createNonBlockingTask(body, Runtime.NO_HINTS);
 		rt.schedule(t1, Runtime.NO_PARENT, Runtime.NO_DEPS);
+		t1.getResult();
+		java.lang.System.out.println(("% " + (((double)(((System.nanoTime()) - t))) / ((1000 * 1000) * 1000))));
 		rt.shutdown();
+		
 		
 
 	}
