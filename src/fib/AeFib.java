@@ -29,7 +29,7 @@ public class AeFib {
 				current.setResult(seqFib(value));
 			} else {
 				if (value <= 2) {
-					value = 1;
+					current.setResult(1);
 					return;
 				}
 
@@ -56,9 +56,9 @@ public class AeFib {
 		FibBody body = new AeFib.FibBody(fib);
 		Task t1 = RuntimeManager.rt.createNonBlockingTask(body, Runtime.NO_HINTS);
 		RuntimeManager.rt.schedule(t1, Runtime.NO_PARENT, Runtime.NO_DEPS);
-		t1.getResult();
+		long v = (Long) t1.getResult();
 		java.lang.System.out.println(("% " + (((double)(((System.nanoTime()) - t))) / ((1000 * 1000) * 1000))));
-		System.out.println("R: " + body.value);
+		System.out.println("R: " + v);
 		RuntimeManager.shutdown();
 		
 		
