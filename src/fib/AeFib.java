@@ -42,11 +42,25 @@ public class AeFib {
 			return seqFib(n);
 		}
 		if (n <= 2) return 1;
-		Task t1 = createTask((Runtime r, Task t) -> { t.setResult(parFib(n-1)); });
-		Task t2 = createTask((Runtime r, Task t) -> { t.setResult(parFib(n-2)); });
+		Task t1 = createTask(new parFibBody(n-1));
+		Task t2 = createTask(new parFibBody(n-1));
 		long v1 = (long) t1.getResult();
 		long v2 = (long) t2.getResult();
 		return v1 + v2;
+	}
+	
+	
+	public static class parFibBody implements Body {
+
+		long a;
+		public parFibBody(long a) {
+			this.a = a;
+		}
+		
+		@Override
+		public void execute(Runtime rt, Task current) throws Exception {
+			parFib(a);
+		}
 	}
 	
 
