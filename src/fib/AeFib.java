@@ -43,7 +43,7 @@ public class AeFib {
 		}
 		if (n <= 2) return 1;
 		Task t1 = createTask(new parFibBody(n-1));
-		Task t2 = createTask(new parFibBody(n-1));
+		Task t2 = createTask(new parFibBody(n-2));
 		long v1 = (long) t1.getResult();
 		long v2 = (long) t2.getResult();
 		return v1 + v2;
