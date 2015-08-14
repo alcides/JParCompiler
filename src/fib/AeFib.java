@@ -14,12 +14,14 @@ public class AeFib {
 	
 	public static <T> FBody<T> createTask(FBody<T> b, Task... ts) {
 		Task t = RuntimeManager.rt.createNonBlockingTask(b, Runtime.NO_HINTS);
+		b.setTask(t);
 		RuntimeManager.rt.schedule(t, Runtime.NO_PARENT, Arrays.asList(ts));
 		return b;
 	}
 	
 	public static <T> FBody<T> createTask(FBody<T> b) {
 		Task t = RuntimeManager.rt.createNonBlockingTask(b, Runtime.NO_HINTS);
+		b.setTask(t);
 		RuntimeManager.rt.schedule(t, Runtime.NO_PARENT, Runtime.NO_DEPS);
 		return b;
 	}
@@ -47,7 +49,11 @@ public class AeFib {
 			t.getResult();
 			return ret;
 		}
-	}
+		
+		public void setTask(Task t) {
+			this.t = t;
+		}
+ 	}
 	
 	
 	public static class parFibBody extends FBody<Long> {
