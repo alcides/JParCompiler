@@ -66,12 +66,12 @@ public class AeFib {
 		@Override
 		public void execute(Runtime rt, Task current) throws Exception {
 			this.t = current;
-			this.ret = parFib(a);
+			this.ret = this.parFib(a);
 		}
 		
 		public long parFib(long n) {
 			if (RuntimeManager.shouldSeq()) {
-				return seqFib(n);
+				return this.seqFib(n);
 			}
 			if (n <= 2) return 1;
 			FBody<Long> t1 = createTask(new parFibBody(n-1));
