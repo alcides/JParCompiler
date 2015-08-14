@@ -26,7 +26,7 @@ public class AeFib {
 		@Override
 		public void execute(Runtime rt, Task current) {
 			if (!rt.parallelize(current)) {
-				value = seqFib(value);
+				current.setResult(seqFib(value));
 			} else {
 				if (value <= 2) {
 					value = 1;
