@@ -4,8 +4,8 @@ import aeminium.runtime.Body;
 import aeminium.runtime.Hints;
 import aeminium.runtime.Runtime;
 import aeminium.runtime.Task;
+import aeminium.runtime.futures.RuntimeManager;
 import aeminium.runtime.futures.codegen.Sequential;
-import aeminium.runtime.implementations.Factory;
 
 
 @Sequential
@@ -52,16 +52,14 @@ public class AeFib {
 
 		int fib = Integer.parseInt(args[0]);
 
-		Runtime rt = Factory.getRuntime();
-
-		rt.init();
+		RuntimeManager.init();
 		long t = System.nanoTime();
 		FibBody body = new AeFib.FibBody(fib);
-		Task t1 = rt.createNonBlockingTask(body, Runtime.NO_HINTS);
-		rt.schedule(t1, Runtime.NO_PARENT, Runtime.NO_DEPS);
+		Task t1 = RuntimeManager.rt.createNonBlockingTask(body, Runtime.NO_HINTS);
+		RuntimeManager.rt.schedule(t1, Runtime.NO_PARENT, Runtime.NO_DEPS);
 		t1.getResult();
 		java.lang.System.out.println(("% " + (((double)(((System.nanoTime()) - t))) / ((1000 * 1000) * 1000))));
-		rt.shutdown();
+		RuntimeManager.shutdown();
 		
 		
 
