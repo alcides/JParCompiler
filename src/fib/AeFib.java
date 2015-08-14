@@ -41,7 +41,7 @@ public class AeFib {
 				Task t2 = rt.createNonBlockingTask(b2, Hints.RECURSION);
 				rt.schedule(t2, Runtime.NO_PARENT, Runtime.NO_DEPS);
 
-				value = (long) t1.getResult() + (long) t2.getResult();
+				value = (Long) t1.getResult() + (Long) t2.getResult();
 				current.setResult(value);
 			}
 		}
