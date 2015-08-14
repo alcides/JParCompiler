@@ -26,19 +26,8 @@ public class AeFib {
 		return b;
 	}
 	
-	public static long seqFib(long n) {
-		if (n <= 2) return 1;
-		else return (seqFib(n - 1) + seqFib(n - 2));
-	}
-	
 	public static long parFib(long n) {
-		if (RuntimeManager.shouldSeq()) {
-			return seqFib(n);
-		}
-		if (n <= 2) return 1;
-		FBody<Long> t1 = createTask(new parFibBody(n-1));
-		FBody<Long> t2 = createTask(new parFibBody(n-2));
-		return t1.get() + t2.get();
+		return createTask(new parFibBody(n)).get();
 	}
 	
 	public static abstract class FBody<T> implements Body{
