@@ -27,6 +27,9 @@ public class AeFib {
 	}
 	
 	public static long parFib(long n) {
+		if (RuntimeManager.shouldSeq()) {
+			return seq_parFib(n);
+		}
 		return createTask(new parFibBody(n)).get();
 	}
 	
