@@ -59,7 +59,7 @@ public class AeFib {
 		
 		@Override
 		public void execute(Runtime rt, Task current) throws Exception {
-			parFib(a);
+			current.setResult(parFib(a));
 		}
 	}
 	
