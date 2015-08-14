@@ -44,7 +44,6 @@ public class AeFib {
 				t1.getResult();
 				t2.getResult();
 				value = b1.value + b2.value;
-				System.out.println("R: " + value);
 			}
 		}
 	}
@@ -60,6 +59,7 @@ public class AeFib {
 		RuntimeManager.rt.schedule(t1, Runtime.NO_PARENT, Runtime.NO_DEPS);
 		t1.getResult();
 		java.lang.System.out.println(("% " + (((double)(((System.nanoTime()) - t))) / ((1000 * 1000) * 1000))));
+		System.out.println("R: " + body.value);
 		RuntimeManager.shutdown();
 		
 		
