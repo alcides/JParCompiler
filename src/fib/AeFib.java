@@ -44,6 +44,7 @@ public class AeFib {
 				t1.getResult();
 				t2.getResult();
 				value = b1.value + b2.value;
+				System.out.println("R: " + value);
 			}
 		}
 	}
