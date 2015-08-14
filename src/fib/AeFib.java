@@ -44,9 +44,21 @@ public class AeFib {
 		}
  	}
 	
+	public static long par_parFib(long n) {
+		if (n <= 2) return 1;
+		FBody<Long> t1 = createTask(new parFibBody(n-1));
+		FBody<Long> t2 = createTask(new parFibBody(n-2));
+		return t1.get() + t2.get();
+	}
+	
+	
+	public static long seq_parFib(long n) {
+		if (n <= 2) return 1;
+		else return (seq_parFib(n - 1) + seq_parFib(n - 2));
+	}
+	
 	
 	public static class parFibBody extends FBody<Long> {
-
 		long a;
 		public parFibBody(long a) {
 			this.a = a;
@@ -54,20 +66,7 @@ public class AeFib {
 		
 		@Override
 		public void execute(Runtime rt, Task current) throws Exception {
-			this.ret = (rt.parallelize(current)) ? parFib(a) : seqFib(a);
-		}
-		
-		public long parFib(long n) {
-			if (n <= 2) return 1;
-			FBody<Long> t1 = createTask(new parFibBody(n-1));
-			FBody<Long> t2 = createTask(new parFibBody(n-2));
-			return t1.get() + t2.get();
-		}
-		
-		
-		public long seqFib(long n) {
-			if (n <= 2) return 1;
-			else return (seqFib(n - 1) + seqFib(n - 2));
+			this.ret = (rt.parallelize(current)) ? par_parFib(a) : seq_parFib(a);
 		}
 	}
 	
