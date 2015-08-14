@@ -42,6 +42,10 @@ public class AeFib {
 		public void setTask(Task t) {
 			this.t = t;
 		}
+		
+		public void setResult(T res) {
+			ret = res;
+		}
  	}
 	
 	public static long par_parFib(long n) {
@@ -66,7 +70,7 @@ public class AeFib {
 		
 		@Override
 		public void execute(Runtime rt, Task current) throws Exception {
-			this.ret = (rt.parallelize(current)) ? par_parFib(a) : seq_parFib(a);
+			this.setResult((rt.parallelize(current)) ? par_parFib(a) : seq_parFib(a));
 		}
 	}
 	
