@@ -52,7 +52,7 @@ public class Fib2 {
         int n_ae;
 
         public void execute(aeminium.runtime.Runtime aeRuntime, aeminium.runtime.Task aeTask) throws java.lang.Exception {
-            setResult((aeRuntime.parallelize(aeTask) ? fib(n_ae) : aeminium_seq_fib(n_ae)));
+        	ret = (aeRuntime.parallelize(aeTask) ? fib(n_ae) : aeminium_seq_fib(n_ae));
         }
     }
 }
