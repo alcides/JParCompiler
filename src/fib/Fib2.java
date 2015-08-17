@@ -1,6 +1,10 @@
 package fib;
 
+import aeminium.runtime.futures.codegen.NoVisit;
+import aeminium.runtime.futures.codegen.Sequential;
 
+@NoVisit
+@Sequential
 public class Fib2 {
     public static void aeminium_seq_main(java.lang.String[] args) {
         int size = 47;

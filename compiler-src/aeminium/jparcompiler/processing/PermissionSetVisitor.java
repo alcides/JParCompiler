@@ -461,8 +461,10 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 	}
 
 	public <T> void visitCtMethod(CtMethod<T> m) {
+		if (m.getParent(CtClass.class).getAnnotation(NoVisit.class) != null) return;
 		scan(m.getBody());
-		PermissionSet set = getPermissionSet(m.getBody()).copy();
+		PermissionSet set = getPermissionSet(m.getBody());
+		set = set.copy();
 		set.removeReturn();
 		setPermissionSet(m, set);
 	}
