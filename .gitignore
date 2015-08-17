@@ -5,3 +5,4 @@ spooned
 compiler/*
 logs
 dist
+lib/Aeminium*.jar
