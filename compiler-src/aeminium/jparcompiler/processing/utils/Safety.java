@@ -25,7 +25,8 @@ public class Safety {
 				return true;
 			}
 		}
-		CtClass<?> cl = m.getParent(CtClass.class);
+		CtClass<?> cl = el.getParent(CtClass.class);
+		
 		for (CtAnnotation<? extends Annotation> an : cl.getAnnotations()) {
 			if (an.getSignature().equals("@" + Sequential.class.getCanonicalName() )) {
 				return true;

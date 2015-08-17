@@ -256,6 +256,9 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 		scan(conditional.getCondition());
 		scan(conditional.getThenExpression());
 		scan(conditional.getElseExpression());
+		PermissionSet set = merge(conditional.getCondition(), conditional.getThenExpression());
+		set = set.merge(getPermissionSet(conditional.getElseExpression()));
+		setPermissionSet(conditional, set);
 	}
 
 	public <T> void visitCtConstructor(CtConstructor<T> c) {

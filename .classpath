@@ -8,5 +8,6 @@
 	<classpathentry kind="lib" path="lib/AeminiumRuntime.jar"/>
 	<classpathentry kind="lib" path="lib/AeminiumFutures.jar" sourcepath="/AeminiumFutures"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/AeminiumGPU"/>
+	<classpathentry kind="src" path="/AeminiumFutures"/>
 	<classpathentry kind="output" path="eclipse_bin"/>
 </classpath>
