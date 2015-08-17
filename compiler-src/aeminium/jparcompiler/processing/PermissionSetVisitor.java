@@ -73,6 +73,7 @@ import spoon.reflect.visitor.Filter;
 import aeminium.jparcompiler.model.Permission;
 import aeminium.jparcompiler.model.PermissionSet;
 import aeminium.jparcompiler.model.PermissionType;
+import aeminium.runtime.futures.codegen.NoVisit;
 
 public class PermissionSetVisitor extends CtAbstractVisitor {
 
@@ -107,12 +108,18 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 	
 	
 	public void scan(CtElement e) {
+		
 		if (out == null) {
 			Factory f = e.getFactory();
 			out = f.Core().createAssert(); // Hackish, I know.
 		}
 		
 		if (e != null) {
+			try {
+				if (e.getParent(CtClass.class).getAnnotation(NoVisit.class) != null ) return;
+			} catch(Exception ex) {
+				System.out.println("parent null in " + e);
+			}
 			e.accept(this);
 			if (getPermissionSet(e) == null) {
 				System.out.println("did not process: " + e + ", " + e.getClass());
@@ -627,6 +634,7 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 
 	public <T> void visitCtVariableRead(CtVariableRead<T> variableRead) {
 		CtElement target = variableRead.getVariable().getDeclaration();
+		if (target == null) System.out.println(variableRead + "<---");
 		Permission p = new Permission(PermissionType.READ, target);
 		PermissionSet set = new PermissionSet();
 		set.add(p);
