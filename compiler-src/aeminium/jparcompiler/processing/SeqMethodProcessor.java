@@ -43,7 +43,7 @@ public class SeqMethodProcessor extends AbstractProcessor<CtMethod<?>> {
 			CtClass<?> cl = (CtClass<?>) m.getParent();
 			cl.addMethod(seq);
 			seq.getElements((CtInvocation i) -> {
-				if (i.getExecutable().getDeclaration().equals(m)) {
+				if (i.getExecutable().getDeclaration() != null && i.getExecutable().getDeclaration().equals(m)) {
 					i.setExecutable(seq.getReference());
 				}
 				return false; 
