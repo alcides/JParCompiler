@@ -153,11 +153,13 @@ public class SeqMethodProcessor extends AbstractProcessor<CtMethod<?>> {
 		CtVariableReference fieldRef = runtimeManager.getDeclaredFields().stream().filter(e -> e.getSimpleName().equals("currentTask")).iterator().next();
 		rtAccess.setVariable(fieldRef);
 		
+		/* RuntimeManager.currentTask.set(aeTask);
 		CtVariableAccess taskRead2 = (CtVariableAccess) CopyCatFactory.clone(taskRead);
 		CtTypeReference tlocal = factory.Type().createReference(ThreadLocal.class);
 		CtExecutableReference setExecutable = tlocal.getDeclaredExecutables().stream().filter(e -> e.getSimpleName().equals("set")).iterator().next();
-		CtInvocation<?> setTask = factory.Code().createInvocation(rtAccess, setExecutable, taskRead2);
+		CtInvocation<?> setTask = factory.Code().createInvocation(rtAccess, setExecutable, taskRead2)
 		exeBlock.addStatement(setTask);
+		*/
 		if (retType.equals(factory.Type().VOID)) {
 			CtIf iif = factory.Core().createIf();
 			iif.setCondition(parallelize);
