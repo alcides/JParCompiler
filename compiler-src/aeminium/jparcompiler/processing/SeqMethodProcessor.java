@@ -33,6 +33,7 @@ public class SeqMethodProcessor extends AbstractProcessor<CtMethod<?>> {
 	public static String SEQ_PREFIX = "aeminium_seq_";
 	
 
+	@SuppressWarnings({ "rawtypes", "unchecked" })
 	@Override
 	public void process(CtMethod<?> m) {
 		if (m.getParent(CtClass.class).getAnnotation(NoVisit.class) != null ) return;
@@ -41,6 +42,12 @@ public class SeqMethodProcessor extends AbstractProcessor<CtMethod<?>> {
 			seq.setSimpleName(SEQ_PREFIX + seq.getSimpleName());
 			CtClass<?> cl = (CtClass<?>) m.getParent();
 			cl.addMethod(seq);
+			seq.getElements((CtInvocation i) -> {
+				if (i.getExecutable().getDeclaration().equals(m)) {
+					i.setExecutable(seq.getReference());
+				}
+				return false; 
+			});
 			
 			if (isRecursive(m)) { 
 				futurifyRecursiveMethod(m.getFactory(), m);
