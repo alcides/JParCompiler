@@ -11,8 +11,10 @@ import spoon.reflect.code.CtBlock;
 import spoon.reflect.code.CtConditional;
 import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtFieldAccess;
+import spoon.reflect.code.CtFieldRead;
 import spoon.reflect.code.CtIf;
 import spoon.reflect.code.CtInvocation;
+import spoon.reflect.code.CtTypeAccess;
 import spoon.reflect.code.CtVariableAccess;
 import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.declaration.CtClass;
@@ -24,8 +26,10 @@ import spoon.reflect.declaration.ModifierKind;
 import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtExecutableReference;
 import spoon.reflect.reference.CtTypeReference;
+import spoon.reflect.reference.CtVariableReference;
 import aeminium.jparcompiler.processing.utils.CopyCatFactory;
 import aeminium.jparcompiler.processing.utils.Safety;
+import aeminium.runtime.futures.RuntimeManager;
 import aeminium.runtime.futures.codegen.NoVisit;
 
 public class SeqMethodProcessor extends AbstractProcessor<CtMethod<?>> {
@@ -132,14 +136,28 @@ public class SeqMethodProcessor extends AbstractProcessor<CtMethod<?>> {
 		CtMethod seqMethod = (CtMethod) container.getMethodsByName("aeminium_seq_" + m.getSimpleName()).get(0);
 		CtInvocation seqVersion = factory.Code().createInvocation(null, seqMethod.getReference(), args);
 		
-		
-		
 		CtBlock exeBlock = factory.Core().createBlock();
 		exe.setBody(exeBlock);
 		cl.addMethod(exe);
 		cons.setBody(block);
 		cl.addConstructor(cons);
 		container.addNestedType(cl);
+		
+		CtFieldRead<?> rtAccess = factory.Core().createFieldRead();
+		CtTypeReference runtimeManager = factory.Type().createReference(
+				RuntimeManager.class);
+		CtTypeAccess<?> accRuntimeManager = factory.Core()
+				.createTypeAccess();
+		accRuntimeManager.setType(runtimeManager);
+		rtAccess.setTarget(accRuntimeManager);
+		CtVariableReference fieldRef = runtimeManager.getDeclaredFields().stream().filter(e -> e.getSimpleName().equals("currentTask")).iterator().next();
+		rtAccess.setVariable(fieldRef);
+		
+		CtVariableAccess taskRead2 = (CtVariableAccess) CopyCatFactory.clone(taskRead);
+		CtTypeReference tlocal = factory.Type().createReference(ThreadLocal.class);
+		CtExecutableReference setExecutable = tlocal.getDeclaredExecutables().stream().filter(e -> e.getSimpleName().equals("set")).iterator().next();
+		CtInvocation<?> setTask = factory.Code().createInvocation(rtAccess, setExecutable, taskRead2);
+		exeBlock.addStatement(setTask);
 		if (retType.equals(factory.Type().VOID)) {
 			CtIf iif = factory.Core().createIf();
 			iif.setCondition(parallelize);

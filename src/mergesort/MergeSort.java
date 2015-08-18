@@ -81,7 +81,7 @@ public class MergeSort {
 		input = new int[size];
 		result = new int[size];
 
-		Random random = new Random(100100);
+		Random random = new Random();
 		for (int i = 0; i < size; ++i) {
 			int k = random.nextInt();
 			if (k < 0) {

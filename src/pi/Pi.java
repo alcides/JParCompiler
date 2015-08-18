@@ -11,7 +11,7 @@ public class Pi {
 		int dartsc = DEFAULT_DART_SIZE;
 		if (args.length > 0) dartsc = Integer.parseInt(args[0]);
 		
-		Random random = new Random(1L);
+		Random random = new Random();
 		long t = System.nanoTime();
 		long score = 0;
 		for (long n = 0; n < dartsc; n++) {

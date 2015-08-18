@@ -3,6 +3,7 @@ package aeminium.jparcompiler.processing;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 import spoon.processing.AbstractProcessor;
 import spoon.reflect.code.BinaryOperatorKind;
@@ -62,6 +63,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		fixer = new PermissionSetFixer(database);
 	}
 
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public void process(CtElement element) {
 		if (Safety.isSafe(element))
@@ -100,6 +102,21 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			}
 
 		}
+		
+		if (element instanceof CtConstructorCall) {
+			CtConstructorCall<?> call = (CtConstructorCall<?>) element;
+			CtTypeReference<?> randomT = factory.Type().createReference("java.util.Random");
+			if (call.getType().equals(randomT) && call.getExecutable().getDeclaringType().equals(randomT)) {
+				CtTypeReference randomTS = factory.Type().createReference(ThreadLocalRandom.class);
+				CtExecutableReference ref = randomTS.getDeclaredExecutables().stream().filter(e -> e.getSimpleName().equals("current")).iterator().next();
+				CtTypeAccess<?> randomTSAccess = factory.Core()
+						.createTypeAccess();
+				randomTSAccess.setType(randomTS);
+				CtExpression current = factory.Code().createInvocation(randomTSAccess, ref, new ArrayList<CtExpression<?>>());
+				call.replace(current);
+			}
+		}
+		
 		if (element instanceof CtInvocation<?>) {
 			getPermissionSet(element);
 			getPermissionSet(element.getParent()); // Double Check
