@@ -681,24 +681,43 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 		}
 		if (fieldRead.getSignature().endsWith("#length")) {
 			set.add(new Permission(PermissionType.READ, fieldRead.getTarget()));
-		} else {
+			setPermissionSet(fieldRead, set);
+			return;
+		}
+		if (fieldRead.getVariable().getDeclaration() == null) {
+			set.add(new Permission(PermissionType.WRITE, out));
+			setPermissionSet(fieldRead, set);
+			return;
+		}
+		scan(fieldRead.getTarget());
+		if (fieldRead.getTarget() == null || fieldRead.getTarget() instanceof CtThisAccess) {
+			// This is a this reference. Add field
 			if (fieldRead.getVariable().getDeclaration() != null) {
-				set.add(new Permission(PermissionType.READ, fieldRead.getVariable().getDeclaration()));
-			} else {
-				set.add(new Permission(PermissionType.WRITE, out));
+				Permission p = new Permission(PermissionType.READ, fieldRead.getVariable().getDeclaration());
+				set.add(p);
 			}
+		} else {
+			set = getPermissionSet(fieldRead.getTarget()).copy();
 		}
 		setPermissionSet(fieldRead, set);
 	}
 
 	@Override
 	public <T> void visitCtFieldWrite(CtFieldWrite<T> fieldWrite) {
-		
 		PermissionSet set = new PermissionSet();
 		scan(fieldWrite.getTarget());
-		if (fieldWrite.getVariable().getDeclaration() != null) {
-			Permission p = new Permission(PermissionType.WRITE, fieldWrite.getVariable().getDeclaration());
-			set.add(p);
+		
+		if (fieldWrite.getTarget() == null || fieldWrite.getTarget() instanceof CtThisAccess) {
+			// This is a this reference. Add field
+			if (fieldWrite.getVariable().getDeclaration() != null) {
+				Permission p = new Permission(PermissionType.WRITE, fieldWrite.getVariable().getDeclaration());
+				set.add(p);
+			}
+		} else {
+			set = getPermissionSet(fieldWrite.getTarget()).copy();
+			for (Permission p : set) {
+				p.type = PermissionType.WRITE;
+			}
 		}
 		setPermissionSet(fieldWrite, set);
 	}

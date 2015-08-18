@@ -20,9 +20,9 @@ public class NBodySystem {
 	
 	public void advance(double dt) {
 		if (dt < 0 ) bodies = null;
-		for (int i = 1; i < bodies.length; i++) {
-			NBody iBody = bodies[i];
-			for (int j = i + 1; j < bodies.length; ++j) {
+		for (int i = 0; i < bodies.length; i++) {
+			for (int j = i + 1; j < bodies.length; j++) {
+				NBody iBody = bodies[i];
 				final NBody body = bodies[j];
 				double dx = iBody.x - body.x;
 				double dy = iBody.y - body.y;
