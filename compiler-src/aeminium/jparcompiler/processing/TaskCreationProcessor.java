@@ -245,7 +245,6 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		System.out.println("Permissions for  " + element.getPosition());
 		vars.printSet();
 		int countWrites = vars.count(PermissionType.WRITE);
-		int countStatementWrites = countStatementWrites(element.getBody());
 		if (countWrites == 0) {
 			generateContinuousFor(element, st, end, type, oldVars);
 		} else if (countWrites == 1) {
@@ -256,21 +255,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 							+ element.getPosition());
 		}
 	}
-
-	@SuppressWarnings("rawtypes")
-	private int countStatementWrites(CtStatement body) {
-		if (body instanceof CtBlock) {
-			CtBlock b = (CtBlock) body;
-			int i = 0;
-			for (CtStatement s : b.getStatements()) {
-				i += countStatementWrites(s);
-			}
-			return i;
-		} else {
-			return getPermissionSet(body).count(PermissionType.WRITE);
-		}
-	}
-
+	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private void generateContinuousForReduce(CtFor element, CtExpression<?> st,
 			CtExpression<?> end, CtTypeReference<?> iteratorType,
