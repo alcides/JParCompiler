@@ -14,6 +14,7 @@ function compile_seq() {
 
 function run() {
 	timeout 5m java -Xmx20G -Xss10m -cp dist/AeminiumRuntime.jar:dist/AeminiumFutures.jar:dist/JparCompilerExamples.jar $@
+	sleep 3
 }
 
 
