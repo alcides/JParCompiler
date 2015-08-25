@@ -10,8 +10,6 @@ function compile_seq() {
 }
 
 
-
-
 function run() {
 	timeout 5m java -Xmx20G -Xss10m -cp dist/AeminiumRuntime.jar:dist/AeminiumFutures.jar:dist/JparCompilerExamples.jar $@
 	sleep 3
@@ -121,4 +119,14 @@ function make_config() {
 function run_config() {	
 	make_config
 	CONFIGNAME=$1 bash utils/benchmark.sh
+}
+
+function test_config() {
+	make_config
+	mkdir -p results
+	for i in {1..2}
+	do
+		echo "Running $1 - $CONFIGNAME"
+		${*:2} >> results/$1_$CONFIGNAME.log
+	done
 }

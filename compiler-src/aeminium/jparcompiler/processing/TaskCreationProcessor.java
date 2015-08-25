@@ -8,6 +8,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import spoon.processing.AbstractProcessor;
 import spoon.reflect.code.BinaryOperatorKind;
 import spoon.reflect.code.CtArrayAccess;
+import spoon.reflect.code.CtArrayRead;
 import spoon.reflect.code.CtBinaryOperator;
 import spoon.reflect.code.CtBlock;
 import spoon.reflect.code.CtConstructorCall;
@@ -34,9 +35,12 @@ import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtParameter;
+import spoon.reflect.declaration.CtVariable;
 import spoon.reflect.declaration.ModifierKind;
 import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtExecutableReference;
+import spoon.reflect.reference.CtFieldReference;
+import spoon.reflect.reference.CtLocalVariableReference;
 import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.reference.CtVariableReference;
 import spoon.reflect.visitor.Query;
@@ -242,8 +246,6 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		});
 		// Next, we evaluate for write permissions inside the cycle.
 		PermissionSet vars = getPermissionSet(element.getBody());
-		System.out.println("Permissions for  " + element.getPosition());
-		vars.printSet();
 		int countWrites = vars.count(PermissionType.WRITE);
 		if (countWrites == 0) {
 			generateContinuousFor(element, st, end, type, oldVars);
@@ -462,8 +464,8 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		CtParameter par = factory.Core().createParameter();
 
 		// VarName
-		String varName = ((CtLocalVariable<?>) element.getForInit().get(0))
-				.getSimpleName();
+		CtLocalVariable<?> init = (CtLocalVariable<?>) element.getForInit().get(0);
+		String varName = init.getSimpleName();
 		par.setSimpleName(varName);
 		par.setType(boxedIterType);
 		lambda.addParameter(par);
@@ -476,6 +478,19 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		ret.setReturnedExpression(retNull);
 		block.addStatement(ret); // adds return null;
 		lambda.setBody((CtBlock) block);
+		
+		lambda.getElements((CtVariableRead v) -> {			
+			if (v.getVariable() instanceof CtLocalVariableReference) {
+				if (v.getVariable().getDeclaration() == init) {
+					CtVariableRead n = factory.Core().createVariableRead();
+					n.setVariable(par.getReference());
+					v.replace(n);
+					setPermissionSet(n, getPermissionSet(v));
+				}
+			}
+			return true;
+		});
+		
 		args.add(lambda);
 
 		// Hints
@@ -503,9 +518,9 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		args.add(hint);
 
 		// Shadow Variables
-		ArrayList<CtLocalVariable<?>> lst = new ArrayList<CtLocalVariable<?>>();
+		ArrayList<CtVariable<?>> lst = new ArrayList<CtVariable<?>>();
 		lst.add(((CtLocalVariable<?>) element.getForInit().get(0)));
-		List<CtLocalVariable<?>> shadows = createShadowVariables(bodyVars,
+		List<CtLocalVariable<?>> shadows = createShadowVariables(element.getBody(), bodyVars,
 				factory, lst);
 		replaceShadowVariables(lambda, shadows);
 
@@ -671,6 +686,14 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 				for (Permission pi : set)
 					if (pi.target == stmt)
 						previousStatement = stmt;
+				if (findVariableAccessInElement(read, (CtLocalVariable) stmt) > 0) {
+					previousStatement = stmt;
+				}
+				if (futureLambda != null) {
+					if (findVariableAccessInElement(futureLambda, (CtLocalVariable) stmt) > 0) {
+						previousStatement = stmt;
+					}
+				}
 			}
 			// Then look for control statements
 			PermissionSet stmtSet = getPermissionSet(stmt);
@@ -707,7 +730,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 
 		List<CtLocalVariable<?>> shadows = new ArrayList<CtLocalVariable<?>>();
 		if (futureLambda != null) {
-			shadows = createShadowVariables(set, factory, null);
+			shadows = createShadowVariables(element, set, factory, null);
 			replaceShadowVariables(futureLambda, shadows);
 		}
 
@@ -758,46 +781,114 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			List<CtLocalVariable<?>> shadows) {
 		// Replace variable accesses by shadows
 		if (shadows.size() > 0) {
-			Query.getElements(futureLambda, (e) -> {
-				if (e instanceof CtVariableAccess) {
-					CtVariableAccess<?> va = (CtVariableAccess<?>) e;
-					for (CtLocalVariable lv : shadows) {
-						String[] parts = lv.getSimpleName().split("_");
-						if (parts[0].equals(va.getVariable().getSimpleName())) {
-							va.setVariable(lv.getReference());
-						}
+			futureLambda.getElements((CtVariableAccess va) -> {
+				for (CtLocalVariable lv : shadows) {
+					String[] parts = lv.getSimpleName().split("_");
+					if (parts[0].equals(va.getVariable().getSimpleName())) {
+						va.setVariable(lv.getReference());
 					}
 				}
 				return true;
 			});
 		}
 	}
-
+	
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	private List<CtLocalVariable<?>> createShadowVariables(PermissionSet set,
-			Factory factory, List<CtLocalVariable<?>> exceptions) {
-		List<CtLocalVariable<?>> shadows = new ArrayList<CtLocalVariable<?>>();
-		for (Permission pi : set) {
-			if (pi.target instanceof CtLocalVariable) {
-				CtLocalVariable lv = (CtLocalVariable<?>) pi.target;
-				if (exceptions != null && exceptions.contains(lv))
-					continue;
-				if (shadows.contains(lv))
-					continue;
-				CtLocalVariable ass = factory.Core().createLocalVariable();
-				CtVariableRead<?> r = factory.Core().createVariableRead();
-				r.setVariable(lv.getReference());
-				ass.setDefaultExpression(r);
-				ass.setSimpleName(lv.getSimpleName() + "_aeminium_"
-						+ (counterTasks - 1));
-				ass.addModifier(ModifierKind.FINAL);
-				ass.setType(lv.getType());
-				shadows.add(ass);
-				setPermissionSet(r, new PermissionSet());
-				setPermissionSet(ass, new PermissionSet());
+	private CtLocalVariable createShadowCopy(CtVariable lv, CtElement el, Factory factory, List<CtLocalVariable<?>> shadows, List<CtVariable<?>> exceptions) {
+		if (exceptions != null) {
+			for (CtVariable<?> ex : exceptions) {
+				if (compareRefs(ex.getReference(), lv.getReference())) return null;
 			}
 		}
+		for (CtLocalVariable<?> sh : shadows) {
+			if (compareRefs(sh.getReference(), lv.getReference())) return null;
+		}
+		if (lv.getReference() instanceof CtFieldReference) return null;
+		
+		
+		// Check if access does not exists in lambda
+		if (findVariableAccessInElement(el, lv) == 0) {
+			return null;
+		}
+		
+		if (el.getElements((CtParameter p) -> (p.getSimpleName().equals(lv.getReference().toString()))).size() > 0) return null;
+		
+		CtLocalVariable ass = factory.Core().createLocalVariable();
+		CtVariableRead<?> r = factory.Core().createVariableRead();
+		r.setVariable(lv.getReference());
+		ass.setDefaultExpression(r);
+		ass.setSimpleName(lv.getSimpleName() + "_aeminium_"
+				+ (counterTasks - 1));
+		ass.addModifier(ModifierKind.FINAL);
+		ass.setType(lv.getType());
+		setPermissionSet(r, new PermissionSet());
+		setPermissionSet(ass, new PermissionSet());
+		return ass;
+	}
+
+	@SuppressWarnings({ "rawtypes" })
+	private List<CtLocalVariable<?>> createShadowVariables(CtElement el, PermissionSet set,
+			Factory factory, List<CtVariable<?>> exs) {
+		
+		if (exs == null) exs = new ArrayList<CtVariable<?>>();
+		final List<CtVariable<?>> exceptions = exs;
+		List<CtLocalVariable<?>> shadows = new ArrayList<CtLocalVariable<?>>();
+		for (Permission pi : set) {
+			if (pi.index != null) {
+				CtLocalVariable c = createShadowCopy(pi.index, el, factory, shadows, exceptions);
+				if (c != null) {
+					exceptions.add(pi.index);
+					shadows.add(c);
+				}
+			}
+			if (pi.target instanceof CtVariable) {
+				CtLocalVariable c = createShadowCopy((CtVariable<?>) pi.target, el, factory, shadows, exceptions);
+				if (c != null) {
+					exceptions.add((CtVariable<?>) pi.target);
+					shadows.add(c);
+				}
+			}
+			if (pi.target instanceof CtArrayRead) {
+				CtArrayRead r = (CtArrayRead) pi.target;
+				if (r.getIndexExpression() instanceof CtVariableRead) {
+					CtVariableRead vr = (CtVariableRead) r.getIndexExpression();
+					if (vr.getVariable() instanceof CtVariableReference){
+						CtVariableReference ref = (CtVariableReference) vr.getVariable();
+						if (ref.getDeclaration() != null) {
+							CtLocalVariable c = createShadowCopy(ref.getDeclaration(), el, factory, shadows, exceptions);
+							if (c != null) {
+								exceptions.add(ref.getDeclaration());
+								shadows.add(c);
+							}
+						}
+					}
+				}
+			}
+		}
+		
 		return shadows;
+	}
+
+	private int findVariableAccessInElement(CtElement el,
+			CtVariable<?> variableRef) {
+		return el.getElements( e -> {
+			if (e instanceof CtVariableAccess) {
+				CtVariableAccess<?> ass = (CtVariableAccess<?>) e;
+				return compareRefs(ass.getVariable(), variableRef.getReference());
+			} else {
+				return false;
+			}
+		}).size();
+	}
+	
+	@SuppressWarnings("rawtypes")
+	private boolean compareRefs(CtVariableReference a, CtVariableReference b) {
+		if (a == null || b == null) return false;
+		try {
+			return a.getDeclaration() == b.getDeclaration();
+		} catch (Exception ex) {
+			return false;
+		}
 	}
 
 	private <E> boolean shouldFuturify(CtInvocation<E> element) {

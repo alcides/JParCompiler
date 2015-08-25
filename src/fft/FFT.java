@@ -71,8 +71,9 @@ public class FFT {
 		for (int k = 0; k < N / 2; k++) {
 			double kth = -2 * k * Math.PI / N;
 			Complex wk = new Complex(Math.cos(kth), Math.sin(kth));
-			y[k] = q[k].plus(wk.times(r[k]));
-			y[k + N / 2] = q[k].minus(wk.times(r[k]));
+			Complex v = wk.times(r[k]);
+			y[k] = q[k].plus(v);
+			y[k + N / 2] = q[k].minus(v);
 		}
 		return y;
 	}

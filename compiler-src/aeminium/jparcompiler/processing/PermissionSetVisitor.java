@@ -153,6 +153,7 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 	public <T> void visitCtArrayRead(CtArrayRead<T> arrayAccess) {
 		scan(arrayAccess.getTarget());
 		scan(arrayAccess.getIndexExpression());
+		
 		PermissionSet targetPermissions = getPermissionSet(arrayAccess.getTarget());
 		PermissionSet indexPermissions = getPermissionSet(arrayAccess.getIndexExpression());
 		if (targetPermissions.size() > 0) {
@@ -169,6 +170,7 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 				}
 			}
 		}
+		
 		PermissionSet newPermissions = targetPermissions.merge(indexPermissions);
 		setPermissionSet(arrayAccess, newPermissions);
 	}
