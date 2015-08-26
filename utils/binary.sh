@@ -1,7 +1,7 @@
 source utils/library.sh
 compile
 
-MAXTASKS=2 BIANRY=1 make_config
+MAXTASKS=2 BINARYSPLIT=true make_config
 CONFIGNAME=maxtasks2_nocache_binary
 
 test par_blackscholes 	run blackscholes.BlackScholes 100000
