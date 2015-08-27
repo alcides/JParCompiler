@@ -101,7 +101,7 @@ function make_config() {
 	if [ -n "$STACKSIZE" ]; then
 		echo "StackSize: $STACKSIZE"
 		echo "DeciderFactory.implementation = aeminium.runtime.implementations.implicitworkstealing.decider.StackSize" >> aeminiumrt.config
-		echo "StackSize.maxStackSize = $SS" >> aeminiumrt.config
+		echo "StackSize.maxStackSize = $STACKSIZE" >> aeminiumrt.config
 	fi
 	
 	if [ -n "$SURPLUS" ]; then
