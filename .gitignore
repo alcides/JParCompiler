@@ -6,3 +6,4 @@ compiler/*
 logs
 dist
 lib/Aeminium*.jar
+benchmark.data

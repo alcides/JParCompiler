@@ -5,10 +5,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
+import aeminium.jparcompiler.model.Permission;
+import aeminium.jparcompiler.model.PermissionSet;
+import aeminium.jparcompiler.model.PermissionType;
+import aeminium.jparcompiler.processing.utils.CopyCatFactory;
+import aeminium.jparcompiler.processing.utils.ForAnalyzer;
+import aeminium.jparcompiler.processing.utils.Safety;
+import aeminium.runtime.futures.RuntimeManager;
+import aeminium.runtime.futures.codegen.NoVisit;
 import spoon.processing.AbstractProcessor;
 import spoon.reflect.code.BinaryOperatorKind;
-import spoon.reflect.code.CtArrayAccess;
-import spoon.reflect.code.CtBinaryOperator;
 import spoon.reflect.code.CtBlock;
 import spoon.reflect.code.CtConstructorCall;
 import spoon.reflect.code.CtExpression;
@@ -24,11 +30,9 @@ import spoon.reflect.code.CtReturn;
 import spoon.reflect.code.CtStatement;
 import spoon.reflect.code.CtStatementList;
 import spoon.reflect.code.CtTypeAccess;
-import spoon.reflect.code.CtUnaryOperator;
 import spoon.reflect.code.CtVariableAccess;
 import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.code.CtWhile;
-import spoon.reflect.code.UnaryOperatorKind;
 import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
@@ -40,13 +44,6 @@ import spoon.reflect.reference.CtExecutableReference;
 import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.reference.CtVariableReference;
 import spoon.reflect.visitor.Query;
-import aeminium.jparcompiler.model.Permission;
-import aeminium.jparcompiler.model.PermissionSet;
-import aeminium.jparcompiler.model.PermissionType;
-import aeminium.jparcompiler.processing.utils.CopyCatFactory;
-import aeminium.jparcompiler.processing.utils.Safety;
-import aeminium.runtime.futures.RuntimeManager;
-import aeminium.runtime.futures.codegen.NoVisit;
 
 public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 
@@ -175,80 +172,15 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 
 	private void processFor(CtFor element) {
 		// First, check conditions for parallelization.
-		if (element.getForInit().size() != 1)
+		ForAnalyzer fa = new ForAnalyzer(element, this.database);
+		if (!fa.canBeAnalyzed()) {
 			return;
-		if (element.getForUpdate().size() != 1)
-			return;
-
-		// Get Variable
-		CtLocalVariable<?> v = (CtLocalVariable<?>) element.getForInit().get(0);
-		CtExpression<?> st = v.getAssignment();
-		CtExpression<?> end = null;
-		CtTypeReference<?> type = v.getType();
-
-		// Check for Increment
-		boolean postinc = false;
-		CtStatement inc = (CtStatement) element.getForUpdate().get(0);
-		if (inc instanceof CtUnaryOperator) {
-			CtUnaryOperator<?> incu = (CtUnaryOperator<?>) inc;
-			if (incu.getKind() == UnaryOperatorKind.POSTINC) {
-				postinc = true;
-			}
 		}
-		if (!postinc)
-			return;
-
-		// Get ceiling
-		CtExpression<Boolean> cond = element.getExpression();
-		if (cond instanceof CtBinaryOperator) {
-			CtBinaryOperator<Boolean> comp = (CtBinaryOperator<Boolean>) cond;
-			if (comp.getKind() != BinaryOperatorKind.LT)
-				return;
-			CtExpression<?> left = comp.getLeftHandOperand();
-			CtExpression<?> right = comp.getRightHandOperand();
-			if (left instanceof CtVariableRead) {
-				CtVariableRead<?> read = (CtVariableRead<?>) left;
-				if (read.getVariable().getDeclaration() == v) {
-					end = right;
-				}
-			}
-			if (right instanceof CtVariableRead) {
-				CtVariableRead<?> read = (CtVariableRead<?>) right;
-				if (read.getVariable().getDeclaration() == v) {
-					end = left;
-				}
-			}
-		}
-		if (end == null)
-			return;
-		// Now we know its postinc and we have the bottom and ceiling.
-
-		PermissionSet oldVars = getPermissionSet(element.getBody());
-
-		// We have to remove the indexed writes and reads that are parallel
-		element.getElements((e) -> {
-			if (e instanceof CtArrayAccess) {
-				CtElement el = e;
-				while (el != element) {
-					boolean deleted = getPermissionSet(el).removeIf(
-							(p) -> p.index != null && p.index == v);
-					if (!deleted) {
-						break;
-					}
-					el = el.getParent();
-				}
-			}
-			return false;
-		});
-		// Next, we evaluate for write permissions inside the cycle.
-		PermissionSet vars = getPermissionSet(element.getBody());
-		System.out.println("Permissions for  " + element.getPosition());
-		vars.printSet();
-		int countWrites = vars.count(PermissionType.WRITE);
+		int countWrites = fa.vars.count(PermissionType.WRITE);
 		if (countWrites == 0) {
-			generateContinuousFor(element, st, end, type, oldVars);
+			generateContinuousFor(element, fa.st, fa.end, fa.type, fa.oldVars);
 		} else if (countWrites == 1) {
-			generateContinuousForReduce(element, st, end, type, oldVars);
+			generateContinuousForReduce(element, fa.st, fa.end, fa.type, fa.oldVars);
 		} else {
 			System.out
 					.println("Not generating parallel for because of permissions. "
@@ -671,6 +603,14 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 				for (Permission pi : set)
 					if (pi.target == stmt)
 						previousStatement = stmt;
+				CtLocalVariable v = (CtLocalVariable) stmt;
+				for (CtVariableReference<?> ref : taskDeps) {
+					if (v.getReference().equals(ref)) {
+						previousStatement = stmt;
+						continue;
+					}
+				}
+				
 			}
 			// Then look for control statements
 			PermissionSet stmtSet = getPermissionSet(stmt);
@@ -690,10 +630,10 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 					// This is a dependency.
 					CtVariableReference<?> dep = tasks.get(stmt);
 					if (dep != null) {
-						// Task dependency
+						// Soft dependency
 						taskDeps.add(dep);
 					} else {
-						// Soft dependency
+						// Hard dependency
 						previousStatement = stmt;
 					}
 				}
@@ -870,7 +810,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		setPermissionSet(e, backup);
 	}
 
-	protected PermissionSet getPermissionSet(CtElement element) {
+	public PermissionSet getPermissionSet(CtElement element) {
 		for (int i = 0; i < 2; i++) {
 			PermissionSet vars = database.get(element);
 			if (vars != null)
