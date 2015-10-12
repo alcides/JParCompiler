@@ -8,6 +8,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
+import aeminium.runtime.Body;
+import aeminium.runtime.Runtime;
+import aeminium.runtime.Task;
+import aeminium.runtime.implementations.Factory;
+
 public class BenchmarkRecorder implements Runnable{
 	
 	HashMap<String, Long> p = new HashMap<>();
@@ -99,7 +104,7 @@ public class BenchmarkRecorder implements Runnable{
 		save("java.util.Random#nextDouble()", rand);
 		save("java.util.concurrent.ThreadLocalRandom#nextDouble()", rand);
 		save("java.lang.Math#random()", rand);
-		save("java.util.concurrent.ThreadLocalRandom#nextInt(int)", rand);
+		save("java.util.concurrent.ThreadLocalRandom#nextInt()", rand);
 		
 		st = System.nanoTime();
 		ArrayList<Integer> n = new ArrayList<>();
@@ -150,6 +155,28 @@ public class BenchmarkRecorder implements Runnable{
 		t = System.nanoTime() - st;
 		long ifop = t - (op*4);
 		save("if", ifop);
+		
+		
+		Runtime ae = Factory.getRuntime();
+		ae.init();
+		st = System.nanoTime();
+		for (int i=0; i<N; i++) {
+			Task task = ae.createBlockingTask(new Body() {
+
+				@Override
+				public void execute(Runtime rt, Task current) throws Exception {
+					
+				}
+				
+			}, Runtime.NO_HINTS);
+			ae.schedule(task, Runtime.NO_PARENT, Runtime.NO_DEPS);
+			task.getResult();
+		}
+		t = System.nanoTime() - st;
+		ae.shutdown();
+		long parallel = t - (op*4);
+		save("parallel", parallel);
+		save("recursion", parallel+1);
 		
 		System.out.println(a);
 	}

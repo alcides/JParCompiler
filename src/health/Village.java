@@ -4,9 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-import aeminium.runtime.futures.codegen.Sequential;
-
-@Sequential
 public class Village {
 	public int id;
 	public int level;

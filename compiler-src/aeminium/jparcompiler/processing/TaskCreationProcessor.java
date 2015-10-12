@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
+import aeminium.jparcompiler.model.CostEstimation;
 import aeminium.jparcompiler.model.Permission;
 import aeminium.jparcompiler.model.PermissionSet;
 import aeminium.jparcompiler.model.PermissionType;
@@ -58,6 +59,22 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		super.init();
 		database = AccessPermissionsProcessor.database;
 		fixer = new PermissionSetFixer(database);
+	}
+	
+	private boolean shouldParallelize(CtElement element) {
+		CostEstimation ce = CostEstimatorProcessor.database.get(element);
+		if (ce == null) {
+			CostEstimatorProcessor.visitor.scan(element);
+			ce = CostEstimatorProcessor.visitor.get(element);
+		}
+		ce.apply(CostEstimatorProcessor.basicCosts);
+		if (ce.isExpressionComplex) {
+			return true;
+		} else {
+			long estimation = ce.expressionCost;
+			long overhead = CostEstimatorProcessor.basicCosts.get("parallel");
+			return estimation > overhead;
+		}
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -115,13 +132,18 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		}
 		
 		if (element instanceof CtInvocation<?>) {
+			if (!shouldParallelize(element)) {
+				return;
+			}
 			getPermissionSet(element);
 			getPermissionSet(element.getParent()); // Double Check
 			processInvocation((CtInvocation<?>) element);
 		}
 		if (element instanceof CtFor) {
+			if (!shouldParallelize(element)) {
+				return;
+			}
 			fixer.scan(element.getParent()); // Hack
-
 			getPermissionSet(element);
 			getPermissionSet(element.getParent()); // Double Check
 			processFor((CtFor) element);

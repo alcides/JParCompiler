@@ -1,8 +1,5 @@
 package blackscholes;
 
-import aeminium.runtime.futures.codegen.Sequential;
-
-
 /*************************************************************************
  * Compilation: javac Gaussian.java Execution: java Gaussian x mu sigma
  * 
@@ -21,7 +18,6 @@ import aeminium.runtime.futures.codegen.Sequential;
  * 
  *************************************************************************/
 
-@Sequential
 public class Gaussian {
 
 	// return phi(x) = standard Gaussian pdf
@@ -60,8 +56,13 @@ public class Gaussian {
 	private static double PhiInverse(double y, double delta, double lo, double hi) {
 		double mid = lo + (hi - lo) / 2;
 		if (hi - lo < delta) return mid;
-		if (Phi(mid) > y) return PhiInverse(y, delta, lo, mid);
-		else return PhiInverse(y, delta, mid, hi);
+		if (Phi(mid) > y) {
+			double e = PhiInverse(y, delta, lo, mid); 
+			return e;
+		} else {
+			double e = PhiInverse(y, delta, mid, hi); 
+			return e;
+		}
 	}
 
 }

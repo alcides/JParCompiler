@@ -19,8 +19,6 @@
 
 package fft;
 
-import aeminium.runtime.futures.codegen.Sequential;
-
 /*************************************************************************
  * Compilation: javac Complex.java Execution: java Complex
  * 
@@ -38,7 +36,6 @@ import aeminium.runtime.futures.codegen.Sequential;
  * 
  *************************************************************************/
 
-@Sequential
 public class Complex {
 	private final double re; // the real part
 	private final double im; // the imaginary part

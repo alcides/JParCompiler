@@ -13,8 +13,9 @@ import spoon.reflect.declaration.CtMethod;
 
 public class CostEstimatorProcessor<T> extends AbstractProcessor<CtMethod<T>>  {
 	public static HashMap<CtElement, CostEstimation> database;
-	CostModelVisitor p = new CostModelVisitor();
-	HashMap<String, Long> basicCosts = new HashMap<>();
+	public static HashMap<String, Long> basicCosts = new HashMap<>();
+	public static CostModelVisitor visitor = new CostModelVisitor();
+	
 	
 	@SuppressWarnings("unchecked")
 	@Override
@@ -22,9 +23,8 @@ public class CostEstimatorProcessor<T> extends AbstractProcessor<CtMethod<T>>  {
 		try {  
 		    FileInputStream fis = new FileInputStream("benchmark.data");
 		    ObjectInputStream ois = new ObjectInputStream(fis);
-			basicCosts = (HashMap<String,Long>) ois.readObject();
-
-		     ois.close();
+			CostEstimatorProcessor.basicCosts = (HashMap<String,Long>) ois.readObject();
+			ois.close();
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
@@ -32,16 +32,12 @@ public class CostEstimatorProcessor<T> extends AbstractProcessor<CtMethod<T>>  {
 		} catch (ClassNotFoundException e) {
 			e.printStackTrace();
 		}
-		meth.accept(p);
+		meth.accept(visitor);
 	}
 
 	@Override
 	public void processingDone() {
 		super.processingDone();
-		database = p.database;
-		for (CtElement e : database.keySet()) {
-			CostEstimation ce = database.get(e);
-			System.out.println("Cost: " + ce.apply(basicCosts));
-		}
+		database = visitor.database;
 	}
 }

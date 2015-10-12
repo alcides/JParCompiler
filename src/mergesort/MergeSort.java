@@ -212,7 +212,6 @@ public class MergeSort {
 	}
 
 
-	@Sequential
 	public static void merge(int[] a1, int[] a2, int[] a3, int[] a4, int[] a) {
 		int i1 = 0;
 		int i2 = 0;

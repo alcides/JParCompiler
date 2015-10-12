@@ -271,7 +271,6 @@ public class CostModelVisitor extends CtAbstractVisitor {
 	public <T> void visitCtInvocation(CtInvocation<T> invocation) {
 		CostEstimation ce = new CostEstimation();
 		if (invocation.getExecutable() != null) {
-			
 			if (invocation.getExecutable().getDeclaration() != null) {
 				CtExecutable<T> ex = invocation.getExecutable().getDeclaration();
 				if (!stackCheck.contains(ex)) {
@@ -281,6 +280,8 @@ public class CostModelVisitor extends CtAbstractVisitor {
 						stackCheck.pop();
 					}
 					ce.add(get(ex));
+				} else {
+					ce.add("recursion", 1);
 				}
 			} else {
 				ce.add(invocation.getExecutable().toString(), 1);
@@ -288,6 +289,7 @@ public class CostModelVisitor extends CtAbstractVisitor {
 		}
 		if (invocation.getTarget() != null) {			
 			scan(invocation.getTarget());
+			//ce.add(get(invocation.getTarget()));
 		}
 		for (CtExpression<?> arg : invocation.getArguments()) {
 			scan(arg);
@@ -359,7 +361,7 @@ public class CostModelVisitor extends CtAbstractVisitor {
 	}
 
 	public <T> void visitCtParameter(CtParameter<T> parameter) {
-		// Do Nothing
+		saveEmpty(parameter);
 	}
 	
 	public <R> void visitCtReturn(CtReturn<R> returnStatement) {
