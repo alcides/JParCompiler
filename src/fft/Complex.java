@@ -19,6 +19,8 @@
 
 package fft;
 
+import aeminium.runtime.futures.codegen.Sequential;
+
 /*************************************************************************
  * Compilation: javac Complex.java Execution: java Complex
  * 
@@ -116,7 +118,8 @@ public class Complex {
 	// return a / b
 	public Complex divides(Complex b) {
 		Complex a = this;
-		return a.times(b.reciprocal());
+		Complex c = b.reciprocal();
+		return a.times(c);
 	}
 
 	// return a new Complex object whose value is the complex exponential of
@@ -149,6 +152,7 @@ public class Complex {
 	}
 
 	// sample client for testing
+	@Sequential
 	public static void main(String[] args) {
 		Complex a = new Complex(5.0, 6.0);
 		Complex b = new Complex(-3.0, 4.0);

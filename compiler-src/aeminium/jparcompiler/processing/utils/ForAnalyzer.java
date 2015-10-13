@@ -95,10 +95,14 @@ public class ForAnalyzer {
 			if (e instanceof CtArrayAccess) {
 				CtElement el = e;
 				while (el != element) {
-					boolean deleted = store.get(el).removeIf(
-							(p) -> p.index != null && p.index == v);
-					if (!deleted) {
-						break;
+					if (store.containsKey(el)) {
+						boolean deleted = store.get(el).removeIf(
+								(p) -> p.index != null && p.index == v);
+						if (!deleted) {
+							break;
+						}
+					} else {
+						System.out.println("Fail in " + el + ", " + el.getPosition());
 					}
 					el = el.getParent();
 				}

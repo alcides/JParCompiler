@@ -2,11 +2,13 @@ package fft;
 
 import java.util.Random;
 
+import aeminium.runtime.futures.codegen.Sequential;
+
 public class FFT {
 	
 	public static int DEFAULT_SIZE = 1024*1024;
 	
-	
+	@Sequential
 	public static Complex[] createRandomComplexArray(int n) {
 		Complex[] x = new Complex[n];
 		for (int i = 0; i < n; i++) {
@@ -16,6 +18,7 @@ public class FFT {
 		return x;
 	}
 	
+	@Sequential
 	public static Complex[] createRandomComplexArray(int n, Random r) {
 		Complex[] x = new Complex[n];
 		for (int i = 0; i < n; i++) {

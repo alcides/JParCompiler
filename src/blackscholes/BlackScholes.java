@@ -45,39 +45,45 @@ public class BlackScholes {
 		return S * Gaussian.Phi(d1) - X * Math.exp(-r * T) * Gaussian.Phi(d2);
 	}
 
+	
+	public static double estimation1(double S, double X, double r, double sigma, double T) {
+		double eps = StdRandom.gaussian();
+		double price = S
+				* Math.exp(r * T - 0.5 * sigma * sigma * T + sigma * eps
+						* Math.sqrt(T));
+		return Math.max(price - X, 0);
+	}
+	
 	// estimate by Monte Carlo simulation
 	public static double call(double S, double X, double r, double sigma,
 			double T, long N) {
 		double sum = 0.0;
 		for (int i = 0; i < N; i++) {
-			double eps = StdRandom.gaussian();
-			double price = S
-					* Math.exp(r * T - 0.5 * sigma * sigma * T + sigma * eps
-							* Math.sqrt(T));
-			double value = Math.max(price - X, 0);
-			sum += value;
+			sum += estimation1(S, X, r, sigma, T);
 		}
 		double mean = sum / N;
-
 		return Math.exp(-r * T) * mean;
 	}
 
+	
+	public static double estimation2(double S, double X, double r, double sigma, double T) {
+		double price = S;
+		double dt = T /10000.0;
+		for (double t = 0; t <= T; t = t + dt) {
+			price += r * price * dt + sigma * price * Math.sqrt(dt)
+					* StdRandom.gaussian();
+		}
+		return Math.max(price - X, 0);
+	}
+	
 	// estimate by Monte Carlo simulation
 	public static double call2(double S, double X, double r, double sigma,
 			double T, long N) {
 		double sum = 0.0;
 		for (int i = 0; i < N; i++) {
-			double price = S;
-			double dt = T / 10000.0;
-			for (double t = 0; t <= T; t = t + dt) {
-				price += r * price * dt + sigma * price * Math.sqrt(dt)
-						* StdRandom.gaussian();
-			}
-			double value = Math.max(price - X, 0);
-			sum += value;
+			sum += estimation2(S, X, r, sigma, T);
 		}
 		double mean = sum / N;
-
 		return Math.exp(-r * T) * mean;
 	}
 

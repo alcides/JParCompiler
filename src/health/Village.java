@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+import aeminium.runtime.futures.codegen.Sequential;
+
 public class Village {
 	public int id;
 	public int level;
@@ -13,6 +15,7 @@ public class Village {
 	public List<Patient> population = new ArrayList<Patient>();
 	public Hosp hosp = new Hosp();
 	
+	@Sequential
 	public void tick() {
 		this.check_patients_inside();
 		this.check_patients_assess();

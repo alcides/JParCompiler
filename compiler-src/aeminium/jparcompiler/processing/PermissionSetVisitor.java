@@ -276,7 +276,10 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 	}
 
 	public void visitCtContinue(CtContinue continueStatement) {
-		// Do Nothing
+		Permission retp = createControlPermission(continueStatement.getParent(CtBlock.class));
+		PermissionSet set = new PermissionSet();
+		set.add(retp);
+		setPermissionSet(continueStatement, set);
 	}
 
 	public void visitCtDo(CtDo doLoop) {

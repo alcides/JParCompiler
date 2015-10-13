@@ -1,8 +1,5 @@
 package integrate;
 
-import aeminium.runtime.futures.codegen.Sequential;
-
-
 public class Integrate {
 	
 	static double errorTolerance = 1.0e-3; //13;
@@ -11,7 +8,6 @@ public class Integrate {
 	static double end = 1036.0;
 
 	// the function to integrate
-	@Sequential
 	static double computeFunction(double x) {
 		return (x * x + 1.0) * x;
 	}

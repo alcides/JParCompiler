@@ -501,17 +501,17 @@ public class CostModelVisitor extends CtAbstractVisitor {
 	}
 	
 	public void saveCopyInto(CtElement e, CtElement ne) {
-		database.put(ne, copy(database.get(e)));
+		save(ne, copy(database.get(e)));
 	}
 	
 	public void saveCopyWithInto(CtElement e, CtElement e2, CtElement ne) {		
 		CostEstimation nc = copy(database.get(e));
 		nc.add(database.get(e));
-		database.put(ne, nc);
+		save(ne, nc);
 	}
 	
 	public void saveEmpty(CtElement e) {
-		database.put(e, new CostEstimation());
+		save(e, new CostEstimation());
 	}
 	
 }

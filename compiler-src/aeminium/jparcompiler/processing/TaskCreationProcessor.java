@@ -44,21 +44,31 @@ import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtExecutableReference;
 import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.reference.CtVariableReference;
+import spoon.reflect.visitor.Filter;
 import spoon.reflect.visitor.Query;
 
 public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 
-	HashMap<CtElement, PermissionSet> database;
+	HashMap<CtElement, PermissionSet> permissionDatabase;
+	HashMap<CtElement, CostEstimation> costDatabase;
+	PermissionSetFixer permFixer;
+	CostModelFixer costFixer;
+	
+	int counterTasks;
 	HashMap<CtElement, CtVariableReference<?>> tasks = new HashMap<CtElement, CtVariableReference<?>>();
 	public static HashMap<CtMethod<?>, CtClass<?>> recAux = new HashMap<CtMethod<?>, CtClass<?>>();
-	PermissionSetFixer fixer;
-	int counterTasks;
+	
+	
+	
+	
 
 	@Override
 	public void init() {
 		super.init();
-		database = AccessPermissionsProcessor.database;
-		fixer = new PermissionSetFixer(database);
+		permissionDatabase = AccessPermissionsProcessor.database;
+		costDatabase = CostEstimatorProcessor.database;
+		permFixer = new PermissionSetFixer(permissionDatabase);
+		costFixer = new CostModelFixer(costDatabase);
 	}
 	
 	private boolean shouldParallelize(CtElement element) {
@@ -68,6 +78,9 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			ce = CostEstimatorProcessor.visitor.get(element);
 		}
 		ce.apply(CostEstimatorProcessor.basicCosts);
+		if (System.getenv("PARALLELIZE") != null) {
+			return true;
+		}
 		if (ce.isExpressionComplex) {
 			return true;
 		} else {
@@ -100,6 +113,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 				m.getBody().insertBegin(c);
 				m.getBody().updateAllParentsBelow();
 				setPermissionSet(c, new PermissionSet());
+				setCost(c, new CostEstimation());
 
 				CtInvocation<?> c2 = factory
 						.Code()
@@ -109,6 +123,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 				m.getBody().insertEnd(c2);
 				m.getBody().updateAllParentsBelow();
 				setPermissionSet(c2, new PermissionSet());
+				setCost(c2, new CostEstimation());
 			} else {
 				if (!recAux.containsKey(m)) { // Not recursive
 					futurifyMethod(element, factory, m);
@@ -132,21 +147,19 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		}
 		
 		if (element instanceof CtInvocation<?>) {
-			if (!shouldParallelize(element)) {
-				return;
-			}
 			getPermissionSet(element);
 			getPermissionSet(element.getParent()); // Double Check
-			processInvocation((CtInvocation<?>) element);
+			if (shouldParallelize(element)) {
+				processInvocation((CtInvocation<?>) element);
+			}
 		}
 		if (element instanceof CtFor) {
-			if (!shouldParallelize(element)) {
-				return;
-			}
-			fixer.scan(element.getParent()); // Hack
+			permFixer.scan(element.getParent()); // Hack
 			getPermissionSet(element);
 			getPermissionSet(element.getParent()); // Double Check
-			processFor((CtFor) element);
+			if (shouldParallelize(element)) {
+				//processFor((CtFor) element); REENABLE
+			}
 		}
 	}
 
@@ -166,6 +179,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 						"aeminium.runtime.futures.RuntimeManager.shouldSeq()")
 				.compile();
 		setPermissionSet(inv, ps.copy());
+		setCost(inv, new CostEstimation());
 		i.setCondition((CtExpression<Boolean>) inv);
 
 		CtClass<?> cl = m.getParent(CtClass.class);
@@ -180,25 +194,37 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 					factory.Method().createParameterReference(p),
 					m.hasModifier(ModifierKind.STATIC));
 			args.add(arg);
+			setCost(arg, new CostEstimation());
 			setPermissionSet(arg, ps.copy());
 		}
 
 		CtInvocation<?> body = factory.Code().createInvocation(null, ref, args);
 		setPermissionSet(body, ps.copy());
+		setCost(body, new CostEstimation());
+		
 		i.setThenStatement(body);
-
+		setCost(i, new CostEstimation());
 		setPermissionSet(i, ps.copy());
 		m.getBody().insertBegin(i);
 		m.getBody().updateAllParentsBelow();
 	}
 
 	private void processFor(CtFor element) {
+
+		if (element.getParent(CtMethod.class).getSimpleName().equals("call")) {
+			System.out.println(element.getParent(CtMethod.class).getSimpleName() + "__");
+			getPermissionSet(element.getBody()).printSet();
+			System.out.println("....");
+		}
+		
 		// First, check conditions for parallelization.
-		ForAnalyzer fa = new ForAnalyzer(element, this.database);
+		ForAnalyzer fa = new ForAnalyzer(element, this.permissionDatabase);
 		if (!fa.canBeAnalyzed()) {
 			return;
 		}
+		
 		int countWrites = fa.vars.count(PermissionType.WRITE);
+		
 		if (countWrites == 0) {
 			generateContinuousFor(element, fa.st, fa.end, fa.type, fa.oldVars);
 		} else if (countWrites == 1) {
@@ -263,6 +289,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 										.compile();
 							setPermissionSet(incrementReducer,
 									new PermissionSet());
+							setCost(incrementReducer, new CostEstimation());
 						}
 					}
 				}
@@ -352,12 +379,16 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		hint.setVariable(hintRef);
 		setPermissionSet(hintTypeAccess, new PermissionSet());
 		setPermissionSet(hint, new PermissionSet());
+		setCost(hintTypeAccess, new CostEstimation());
+		setCost(hint, new CostEstimation());
 		args.add(hint);
 
 		forHelper.setArguments(args);
 		element.replace(hollowSetting);
 		setPermissionSet(lambda, new PermissionSet());
+		setCost(lambda, new CostEstimation());
 		setPermissionSet(hollowSetting, vars);
+		setCost(hollowSetting, new CostEstimation());
 
 		// future.get()
 		CtInvocation<?> read = factory.Core().createInvocation();
@@ -370,6 +401,8 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		update.setAssignment((CtExpression) read);
 		setPermissionSet(read, oldVars);
 		setPermissionSet(update, oldVars);
+		setCost(read, new CostEstimation());
+		setCost(update, new CostEstimation());
 		insertAfter(hollowSetting, update);
 	}
 
@@ -459,7 +492,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		// Shadow Variables
 		ArrayList<CtLocalVariable<?>> lst = new ArrayList<CtLocalVariable<?>>();
 		lst.add(((CtLocalVariable<?>) element.getForInit().get(0)));
-		List<CtLocalVariable<?>> shadows = createShadowVariables(bodyVars,
+		List<CtLocalVariable<?>> shadows = createShadowVariables(lambda, bodyVars,
 				factory, lst);
 		replaceShadowVariables(lambda, shadows);
 
@@ -479,7 +512,8 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		setPermissionSet(finalLambda.getBody().getLastStatement(),
 				new PermissionSet());
 		setPermissionSet(hollowSetting, oldVars);
-		fixer.scan(hollowSetting);
+		permFixer.scan(hollowSetting);
+		costFixer.scan(hollowSetting);
 	}
 
 	private void processInvocation(CtInvocation<?> element) {
@@ -492,6 +526,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private <E> void futurifyInvocation(CtInvocation<E> element) {
+		
 		PermissionSet set = getPermissionSet(element);
 		Factory factory = element.getFactory();
 		factory.getEnvironment().setComplianceLevel(8);
@@ -619,12 +654,27 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			if (stmt.getPosition() != null
 					&& stmt.getPosition().getLine() >= pos.getLine())
 				break;
-
+			
+			List<CtVariableAccess> accesses = Query.getElements(element, new Filter<CtVariableAccess>() {
+				@Override
+				public boolean matches(CtVariableAccess acc) {
+					if (acc.getVariable().getDeclaration() instanceof CtLocalVariable) {
+						return true;
+					}
+					return false;
+				}
+			}); 
+			
 			// Hard requirement for local variables to be declared
 			if (stmt instanceof CtLocalVariable) {
 				for (Permission pi : set)
 					if (pi.target == stmt)
 						previousStatement = stmt;
+				for (CtVariableAccess acc : accesses) {
+					if (acc.getVariable().getDeclaration() == stmt) {
+						previousStatement = stmt;
+					}
+				}
 				CtLocalVariable v = (CtLocalVariable) stmt;
 				for (CtVariableReference<?> ref : taskDeps) {
 					if (v.getReference().equals(ref)) {
@@ -632,7 +682,6 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 						continue;
 					}
 				}
-				
 			}
 			// Then look for control statements
 			PermissionSet stmtSet = getPermissionSet(stmt);
@@ -653,7 +702,8 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 					CtVariableReference<?> dep = tasks.get(stmt);
 					if (dep != null) {
 						// Soft dependency
-						taskDeps.add(dep);
+						if (!taskDeps.contains(dep))
+							taskDeps.add(dep);
 					} else {
 						// Hard dependency
 						previousStatement = stmt;
@@ -669,7 +719,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 
 		List<CtLocalVariable<?>> shadows = new ArrayList<CtLocalVariable<?>>();
 		if (futureLambda != null) {
-			shadows = createShadowVariables(set, factory, null);
+			shadows = createShadowVariables(futureLambda, set, factory, null);
 			replaceShadowVariables(futureLambda, shadows);
 		}
 
@@ -680,19 +730,20 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			}
 			block.updateAllParentsBelow();
 		} else {
-			fixer.scan(previousStatement.getParent(CtBlock.class).getParent());
+			permFixer.scan(previousStatement.getParent(CtBlock.class).getParent());
 			insertAfter(previousStatement, futureAssign);
 			for (CtLocalVariable<?> lv : shadows) {
 				insertAfter(previousStatement, lv);
 			}
 			block = futureAssign.getParent(CtBlock.class);
-			fixer.scan(previousStatement.getParent());
+			permFixer.scan(previousStatement.getParent());
 		}
+		setCost(futureAssign, new CostEstimation());
 		tasks.put(read, futureAssign.getReference());
 
 		// Fix broken blocks
-		fixer.scan(block.getParent());
-		fixer.scan(read.getParent(CtBlock.class).getParent());
+		permFixer.scan(block.getParent());
+		permFixer.scan(read.getParent(CtBlock.class).getParent());
 	}
 
 	@SuppressWarnings("rawtypes")
@@ -722,6 +773,9 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		if (shadows.size() > 0) {
 			Query.getElements(futureLambda, (e) -> {
 				if (e instanceof CtVariableAccess) {
+					PermissionSet parentPerm = getPermissionSet(e.getParent());
+					PermissionSet currentPerm = getPermissionSet(e.getParent());
+					
 					CtVariableAccess<?> va = (CtVariableAccess<?>) e;
 					for (CtLocalVariable lv : shadows) {
 						String[] parts = lv.getSimpleName().split("_");
@@ -729,6 +783,8 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 							va.setVariable(lv.getReference());
 						}
 					}
+					setPermissionSet(va, currentPerm);
+					setPermissionSet(va.getParent(), parentPerm);
 				}
 				return true;
 			});
@@ -736,8 +792,36 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	private List<CtLocalVariable<?>> createShadowVariables(PermissionSet set,
+	private List<CtLocalVariable<?>> createShadowVariables(CtLambda futureLambda, PermissionSet set,
 			Factory factory, List<CtLocalVariable<?>> exceptions) {
+		List<CtLocalVariable<?>> shadows = new ArrayList<CtLocalVariable<?>>();
+		Query.getElements(futureLambda, new Filter<CtVariableAccess>() {
+
+			@Override
+			public boolean matches(CtVariableAccess acc) {
+				
+				CtElement decl = acc.getVariable().getDeclaration();
+				if (decl instanceof CtLocalVariable) {
+					CtLocalVariable lv = (CtLocalVariable) decl;
+					
+					CtLocalVariable ass = factory.Core().createLocalVariable();
+					CtVariableRead<?> r = factory.Core().createVariableRead();
+					r.setVariable(lv.getReference());
+					ass.setDefaultExpression(r);
+					ass.setSimpleName(lv.getSimpleName() + "_aeminium_"
+							+ (counterTasks - 1));
+					ass.addModifier(ModifierKind.FINAL);
+					ass.setType(lv.getType());
+					shadows.add(ass);
+					setPermissionSet(r, new PermissionSet());
+					setPermissionSet(ass, new PermissionSet());
+				}
+				
+				return false;
+			}
+			
+		});
+		/*		
 		List<CtLocalVariable<?>> shadows = new ArrayList<CtLocalVariable<?>>();
 		for (Permission pi : set) {
 			if (pi.target instanceof CtLocalVariable) {
@@ -759,6 +843,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 				setPermissionSet(ass, new PermissionSet());
 			}
 		}
+		*/
 		return shadows;
 	}
 
@@ -831,20 +916,45 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		e.updateAllParentsBelow();
 		setPermissionSet(e, backup);
 	}
-
-	public PermissionSet getPermissionSet(CtElement element) {
+	
+	
+	public void copyInto(CtElement from, CtElement to) {
+		copyCost(from, to);
+		copyPermissionSet(from, to);
+	}
+	
+	public void setCost(CtElement el, CostEstimation ce) {
+		costDatabase.put(el, ce);
+	}
+	
+	public void copyCost(CtElement from, CtElement to) {
+		setCost(to, getCost(from));
+	}
+	
+	public CostEstimation getCost(CtElement e) {
 		for (int i = 0; i < 2; i++) {
-			PermissionSet vars = database.get(element);
+			CostEstimation vars = costDatabase.get(e);
 			if (vars != null)
 				return vars;
-			fixer.scan(element.getParent());
+			permFixer.scan(e.getParent());
 		}
-		throw new RuntimeException("Missing database for " + element.hashCode()
+		throw new RuntimeException("Missing cost database for " + e.hashCode()
+				+ " / " + e + " / " + e.getClass());
+	}
+	
+	public PermissionSet getPermissionSet(CtElement element) {
+		for (int i = 0; i < 2; i++) {
+			PermissionSet vars = permissionDatabase.get(element);
+			if (vars != null)
+				return vars;
+			permFixer.scan(element.getParent());
+		}
+		throw new RuntimeException("Missing permission database for " + element.hashCode()
 				+ " / " + element + " / " + element.getClass());
 	}
 
 	protected void setPermissionSet(CtElement e, PermissionSet s) {
-		database.put(e, s);
+		permissionDatabase.put(e, s);
 	}
 
 	protected void copyPermissionSet(CtElement e, CtElement to) {
@@ -852,7 +962,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	}
 
 	protected boolean hasPermissionSet(CtElement el) {
-		return database.containsKey(el);
+		return permissionDatabase.containsKey(el);
 	}
 
 }
