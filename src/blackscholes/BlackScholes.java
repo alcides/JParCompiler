@@ -59,7 +59,8 @@ public class BlackScholes {
 			double T, long N) {
 		double sum = 0.0;
 		for (int i = 0; i < N; i++) {
-			sum += estimation1(S, X, r, sigma, T);
+			double est = estimation1(S, X, r, sigma, T);
+			sum += est;
 		}
 		double mean = sum / N;
 		return Math.exp(-r * T) * mean;

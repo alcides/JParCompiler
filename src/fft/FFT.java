@@ -6,7 +6,7 @@ import aeminium.runtime.futures.codegen.Sequential;
 
 public class FFT {
 	
-	public static int DEFAULT_SIZE = 1024*1024;
+	public static int DEFAULT_SIZE = 2*1024*1024;
 	
 	@Sequential
 	public static Complex[] createRandomComplexArray(int n) {
@@ -28,6 +28,8 @@ public class FFT {
 		return x;
 	}
 	
+	
+	@Sequential
 	public static void main(String[] args) {
 		int size = FFT.DEFAULT_SIZE;
 		if (args.length > 0) {

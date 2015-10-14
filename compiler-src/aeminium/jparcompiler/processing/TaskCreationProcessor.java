@@ -93,8 +93,12 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public void process(CtElement element) {
-		if (Safety.isSafe(element))
-			return;
+		if (element instanceof CtMethod && ((CtMethod) element).getSimpleName().equals("main")) {
+			// Skipping main
+		} else {
+			if (Safety.isSafe(element))
+				return;
+		}
 		if (element.getParent(CtClass.class).getAnnotation(NoVisit.class) != null)
 			return;
 
@@ -158,7 +162,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			getPermissionSet(element);
 			getPermissionSet(element.getParent()); // Double Check
 			if (shouldParallelize(element)) {
-				//processFor((CtFor) element); REENABLE
+				processFor((CtFor) element);
 			}
 		}
 	}
@@ -209,14 +213,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		m.getBody().updateAllParentsBelow();
 	}
 
-	private void processFor(CtFor element) {
-
-		if (element.getParent(CtMethod.class).getSimpleName().equals("call")) {
-			System.out.println(element.getParent(CtMethod.class).getSimpleName() + "__");
-			getPermissionSet(element.getBody()).printSet();
-			System.out.println("....");
-		}
-		
+	private void processFor(CtFor element) {		
 		// First, check conditions for parallelization.
 		ForAnalyzer fa = new ForAnalyzer(element, this.permissionDatabase);
 		if (!fa.canBeAnalyzed()) {
@@ -773,9 +770,6 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		if (shadows.size() > 0) {
 			Query.getElements(futureLambda, (e) -> {
 				if (e instanceof CtVariableAccess) {
-					PermissionSet parentPerm = getPermissionSet(e.getParent());
-					PermissionSet currentPerm = getPermissionSet(e.getParent());
-					
 					CtVariableAccess<?> va = (CtVariableAccess<?>) e;
 					for (CtLocalVariable lv : shadows) {
 						String[] parts = lv.getSimpleName().split("_");
@@ -783,27 +777,50 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 							va.setVariable(lv.getReference());
 						}
 					}
-					setPermissionSet(va, currentPerm);
-					setPermissionSet(va.getParent(), parentPerm);
 				}
 				return true;
 			});
 		}
 	}
 
+	private boolean isParent(CtElement parent, CtElement child) {
+		CtElement p = child.getParent();
+		while (p != null) {
+			if (p.equals(parent)) return true;
+			p = p.getParent();
+		}
+		return false;
+	}
+	
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private List<CtLocalVariable<?>> createShadowVariables(CtLambda futureLambda, PermissionSet set,
 			Factory factory, List<CtLocalVariable<?>> exceptions) {
 		List<CtLocalVariable<?>> shadows = new ArrayList<CtLocalVariable<?>>();
+		List<CtLocalVariable<?>> originals = new ArrayList<CtLocalVariable<?>>();
 		Query.getElements(futureLambda, new Filter<CtVariableAccess>() {
 
 			@Override
 			public boolean matches(CtVariableAccess acc) {
-				
-				CtElement decl = acc.getVariable().getDeclaration();
+				if (acc.getVariable() == null) return false;
+				CtElement decl = null;
+				try {
+					decl = acc.getVariable().getDeclaration();
+				} catch (Exception e) {
+					return false;
+				}
 				if (decl instanceof CtLocalVariable) {
 					CtLocalVariable lv = (CtLocalVariable) decl;
 					
+					if (isParent(futureLambda, lv)) return false;
+					
+					if (exceptions != null && exceptions.contains(lv))
+						return false;
+					
+					if (originals.contains(lv)) {
+						return false;
+					}
+					
+					originals.add(lv);
 					CtLocalVariable ass = factory.Core().createLocalVariable();
 					CtVariableRead<?> r = factory.Core().createVariableRead();
 					r.setVariable(lv.getReference());

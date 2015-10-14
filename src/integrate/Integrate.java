@@ -1,8 +1,10 @@
 package integrate;
 
+import aeminium.runtime.futures.codegen.Sequential;
+
 public class Integrate {
 	
-	static double errorTolerance = 1.0e-3; //13;
+	static double errorTolerance = 1.0e-11; //13;
 	static int threshold = 100;
 	static double start = -2101.0;
 	static double end = 1036.0;
@@ -12,6 +14,7 @@ public class Integrate {
 		return (x * x + 1.0) * x;
 	}
 	
+	@Sequential
 	public static void main(String[] args) throws Exception {
 
 		if (args.length > 0) {
@@ -33,7 +36,7 @@ public class Integrate {
 	static final double recEval(double l, double r, double fl, double fr, double a) {
 		double h = (r - l) * 0.5;
 		double c = l + h;
-		double fc = (c * c + 1.0) * c;
+		double fc = computeFunction(c);
 		double hh = h * 0.5;
 		double al = (fl + fc) * hh;
 		double ar = (fr + fc) * hh;
