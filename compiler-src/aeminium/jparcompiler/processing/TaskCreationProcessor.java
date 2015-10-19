@@ -19,7 +19,9 @@ import aeminium.runtime.futures.RuntimeManager;
 import aeminium.runtime.futures.codegen.NoVisit;
 import spoon.processing.AbstractProcessor;
 import spoon.reflect.code.BinaryOperatorKind;
+import spoon.reflect.code.CtBinaryOperator;
 import spoon.reflect.code.CtBlock;
+import spoon.reflect.code.CtConditional;
 import spoon.reflect.code.CtConstructorCall;
 import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtFieldRead;
@@ -582,10 +584,12 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			setPermissionSet(futureAssign, set.copy());
 		}
 		// Create future.get()
+		
 		CtInvocation<E> read = factory.Core().createInvocation();
-		read.setTarget(factory.Code().createVariableRead(
+		CtVariableAccess<?> varRead = factory.Code().createVariableRead(
 				factory.Code().createLocalVariableReference(futureAssign),
-				false));
+				false);
+		read.setTarget(varRead);
 		read.setArguments(new ArrayList<CtExpression<?>>());
 		read.setType(element.getType());
 
@@ -599,8 +603,33 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		}
 		if (!(element.getParent() instanceof CtBlock))
 			read.addTypeCast(originalType);
+		
+		CtElement newElement;
+		if (isStatement(element)) {
+			CtIf ifc = (CtIf) factory
+					.Code()
+					.createCodeSnippetStatement("if ( null == null) {} else {}").compile();
+			CtBinaryOperator<Boolean> cond = (CtBinaryOperator<Boolean>) ifc.getCondition();
+			cond.setLeftHandOperand((CtExpression<?>) CopyCatFactory.basicClone(varRead));
+			CtBlock bt = ifc.getThenStatement();
+			bt.addStatement((CtStatement) CopyCatFactory.basicClone(element));
+			CtBlock be = ifc.getElseStatement();
+			be.addStatement(read);
+			element.replace(ifc);
+			newElement = ifc;
+		} else {
+			CtConditional conditional = (CtConditional) factory
+					.Code()
+					.createCodeSnippetExpression("( null == null) ? null : null").compile();
+			CtBinaryOperator<Boolean> cond = (CtBinaryOperator<Boolean>) conditional.getCondition();
+			cond.setLeftHandOperand((CtExpression<?>) CopyCatFactory.basicClone(varRead));
+			conditional.setThenExpression((CtExpression<?>) CopyCatFactory.basicClone(element));
+			conditional.setElseExpression(read);
+			element.replace((CtExpression<E>) conditional);
+			newElement = conditional;
+		}
+		setPermissionSet(newElement, set.copy());
 		setPermissionSet(read, set.copy());
-		element.replace((CtExpression<E>) read);
 		read.getParent(CtBlock.class).updateAllParentsBelow();
 
 		if (futureLambda != null) {
@@ -631,7 +660,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		List<CtVariableReference<?>> taskDeps = new ArrayList<CtVariableReference<?>>();
 
 		for (CtStatement stmt : block.getStatements()) {
-			if (stmt == read)
+			if (stmt == newElement)
 				break;
 			if (stmt.getPosition() != null
 					&& stmt.getPosition().getLine() >= pos.getLine())
@@ -658,6 +687,9 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 					}
 				}
 				CtLocalVariable v = (CtLocalVariable) stmt;
+				if (varRead.getVariable().getDeclaration().equals(v)) {
+					previousStatement = stmt;
+				}
 				for (CtVariableReference<?> ref : taskDeps) {
 					if (v.getReference().equals(ref)) {
 						previousStatement = stmt;
@@ -919,6 +951,13 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		setPermissionSet(e, backup);
 	}
 	
+	private boolean isStatement(CtInvocation<?> element) {
+		CtElement p = element.getParent();
+		if (p instanceof CtStatementList) return true;
+		if (p instanceof CtBlock) return true;
+		if (p instanceof CtIf && ((CtIf) p).getCondition() != element  ) return true;
+		return false;
+	}
 	
 	public void copyInto(CtElement from, CtElement to) {
 		copyCost(from, to);

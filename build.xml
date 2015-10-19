@@ -5,7 +5,7 @@
 	<property name="build.dir" value="bin" />
 	<property name="lib.dir" value="lib" />
 	<property name="dist.dir" value="dist" />
-	<property name="main-class" value="floyd.FloydWarshall" />
+	<property name="main-class" value="nbody.NBody" />
 	<property name="seq.build.dir" value="seq-bin" />
 
 
@@ -48,7 +48,7 @@
 		<!-- define spoon task -->
 		<taskdef name="spoon" classname="spoon.SpoonTask" classpathref="compiler.classpath" />
 
-		<spoon classpathref="compiler.classpath" verbose="true">
+		<spoon classpathref="compiler.classpath">
 			<sourceSet dir="${src.dir}" />
 			<!--<templateset dir="${compiler.src.dir}/aeminium/jparcompiler/templates" />-->
 			<processor type="aeminium.jparcompiler.processing.AccessPermissionsProcessor" />
