@@ -9,6 +9,8 @@ import aeminium.jparcompiler.model.CostEstimation;
 import aeminium.jparcompiler.model.Permission;
 import aeminium.jparcompiler.model.PermissionSet;
 import aeminium.jparcompiler.model.PermissionType;
+import aeminium.jparcompiler.processing.granularity.CostModelGranularityControl;
+import aeminium.jparcompiler.processing.granularity.GranularityControl;
 import aeminium.jparcompiler.processing.utils.CopyCatFactory;
 import aeminium.jparcompiler.processing.utils.ForAnalyzer;
 import aeminium.jparcompiler.processing.utils.Safety;
@@ -58,9 +60,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	HashMap<CtElement, CtVariableReference<?>> tasks = new HashMap<CtElement, CtVariableReference<?>>();
 	public static HashMap<CtMethod<?>, CtClass<?>> recAux = new HashMap<CtMethod<?>, CtClass<?>>();
 	
-	
-	
-	
+	GranularityControl granularityControl = new CostModelGranularityControl();
 
 	@Override
 	public void init() {
@@ -71,25 +71,6 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		costFixer = new CostModelFixer(costDatabase);
 	}
 	
-	private boolean shouldParallelize(CtElement element) {
-		CostEstimation ce = CostEstimatorProcessor.database.get(element);
-		if (ce == null) {
-			CostEstimatorProcessor.visitor.scan(element);
-			ce = CostEstimatorProcessor.visitor.get(element);
-		}
-		ce.apply(CostEstimatorProcessor.basicCosts);
-		if (System.getenv("PARALLELIZE") != null) {
-			return true;
-		}
-		if (ce.isExpressionComplex) {
-			return true;
-		} else {
-			long estimation = ce.expressionCost;
-			long overhead = CostEstimatorProcessor.basicCosts.get("parallel");
-			return estimation > overhead;
-		}
-	}
-
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public void process(CtElement element) {
@@ -153,7 +134,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		if (element instanceof CtInvocation<?>) {
 			getPermissionSet(element);
 			getPermissionSet(element.getParent()); // Double Check
-			if (shouldParallelize(element)) {
+			if (granularityControl.shouldParallelize(element)) {
 				processInvocation((CtInvocation<?>) element);
 			}
 		}
@@ -161,7 +142,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			permFixer.scan(element.getParent()); // Hack
 			getPermissionSet(element);
 			getPermissionSet(element.getParent()); // Double Check
-			if (shouldParallelize(element)) {
+			if (granularityControl.shouldParallelize(element)) {
 				processFor((CtFor) element);
 			}
 		}
@@ -514,10 +495,6 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	}
 
 	private void processInvocation(CtInvocation<?> element) {
-		if (element.getExecutable().getDeclaringType().getQualifiedName()
-				.startsWith("java.lang.Math")) {
-			return;
-		}
 		futurifyInvocation(element);
 	}
 

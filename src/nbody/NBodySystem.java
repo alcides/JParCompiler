@@ -24,21 +24,21 @@ public class NBodySystem {
 			for (int j = i + 1; j < bodies.length; j++) {
 				NBody iBody = bodies[i];
 				final NBody body = bodies[j];
-				double dx = iBody.x - body.x;
-				double dy = iBody.y - body.y;
-				double dz = iBody.z - body.z;
-
+				double dx = NBody.minus(iBody.x, body.x);
+				double dy = NBody.minus(iBody.y, body.y);
+				double dz = NBody.minus(iBody.z, body.z);
+				
 				double dSquared = dx * dx + dy * dy + dz * dz;
 				double distance = Math.sqrt(dSquared);
 				double mag = dt / (dSquared * distance);
 
-				iBody.vx -= dx * body.mass * mag;
-				iBody.vy -= dy * body.mass * mag;
-				iBody.vz -= dz * body.mass * mag;
-
-				body.vx += dx * iBody.mass * mag;
-				body.vy += dy * iBody.mass * mag;
-				body.vz += dz * iBody.mass * mag;
+				iBody.changeVelocity(-dx * body.mass * mag, 
+						-dy * body.mass * mag,
+						-dz * body.mass * mag);
+				
+				body.changeVelocity(dx * iBody.mass * mag,
+						dy * iBody.mass * mag, 
+						dz * iBody.mass * mag);
 			}
 		}
 

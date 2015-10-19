@@ -89,5 +89,15 @@ public class NBody {
 		vz = -pz / SOLAR_MASS;
 		return this;
 	}
-
+	
+	public void changeVelocity(double vx, double vy, double vz) {
+		this.vx += vx;
+		this.vy += vy;
+		this.vz += vz;
+	}
+	
+	public static double minus(double a, double b) {
+		return a-b;
+	}
+	
 }
