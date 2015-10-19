@@ -11,6 +11,7 @@ import aeminium.jparcompiler.model.PermissionSet;
 import aeminium.jparcompiler.model.PermissionType;
 import aeminium.jparcompiler.processing.granularity.CostModelGranularityControl;
 import aeminium.jparcompiler.processing.granularity.GranularityControl;
+import aeminium.jparcompiler.processing.granularity.SimpleGranularityControl;
 import aeminium.jparcompiler.processing.utils.CopyCatFactory;
 import aeminium.jparcompiler.processing.utils.ForAnalyzer;
 import aeminium.jparcompiler.processing.utils.Safety;
@@ -60,7 +61,14 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	HashMap<CtElement, CtVariableReference<?>> tasks = new HashMap<CtElement, CtVariableReference<?>>();
 	public static HashMap<CtMethod<?>, CtClass<?>> recAux = new HashMap<CtMethod<?>, CtClass<?>>();
 	
-	GranularityControl granularityControl = new CostModelGranularityControl();
+	private static GranularityControl granularityControl;
+	
+	static {
+		if (System.getenv("PARALLELIZE") == null)
+			granularityControl = new CostModelGranularityControl();
+		else
+			granularityControl = new SimpleGranularityControl();
+	}
 
 	@Override
 	public void init() {

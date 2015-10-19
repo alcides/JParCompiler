@@ -13,9 +13,6 @@ public class CostModelGranularityControl implements GranularityControl {
 			ce = CostEstimatorProcessor.visitor.get(element);
 		}
 		ce.apply(CostEstimatorProcessor.basicCosts);
-		if (System.getenv("PARALLELIZE") != null) {
-			return true;
-		}
 		if (ce.isExpressionComplex) {
 			return true;
 		} else {
@@ -24,4 +21,10 @@ public class CostModelGranularityControl implements GranularityControl {
 			return estimation > overhead;
 		}
 	}
+	
+	public boolean hasGranularityControlExpression(CtElement e) {
+		CostEstimation ce = CostEstimatorProcessor.database.get(e);
+		return ce != null && ce.isExpressionComplex;
+	}
+	
 }
