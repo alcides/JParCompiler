@@ -2,7 +2,7 @@ package aeminium.jparcompiler.processing.granularity;
 
 import spoon.reflect.declaration.CtElement;
 
-public class SimpleGranularityControl implements GranularityControl {
+public class NoGranularityControl implements GranularityControl {
 
 	@Override
 	public boolean shouldParallelize(CtElement element) {
@@ -10,11 +10,11 @@ public class SimpleGranularityControl implements GranularityControl {
 	}
 	
 	public boolean hasGranularityControlExpression(CtElement e) {
-		return false;
+		return true;
 	}
-
 	
 	public String getGranularityControlString(CtElement e) {
-		return "aeminium.runtime.futures.RuntimeManager.shouldSeq()";
+		return "false";
 	}
+
 }

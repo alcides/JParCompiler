@@ -11,6 +11,7 @@ import aeminium.jparcompiler.model.PermissionSet;
 import aeminium.jparcompiler.model.PermissionType;
 import aeminium.jparcompiler.processing.granularity.CostModelGranularityControl;
 import aeminium.jparcompiler.processing.granularity.GranularityControl;
+import aeminium.jparcompiler.processing.granularity.NoGranularityControl;
 import aeminium.jparcompiler.processing.granularity.SimpleGranularityControl;
 import aeminium.jparcompiler.processing.utils.CopyCatFactory;
 import aeminium.jparcompiler.processing.utils.ForAnalyzer;
@@ -66,10 +67,16 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	private static GranularityControl granularityControl;
 	
 	static {
-		if (System.getenv("PARALLELIZE") == null)
+		if (System.getenv("PARALLELIZE") == null) {
 			granularityControl = new CostModelGranularityControl();
-		else
-			granularityControl = new SimpleGranularityControl();
+		} else {
+			String par = System.getenv("PARALLELIZE");
+			if (par.equals("all")) {
+				granularityControl = new NoGranularityControl();
+			} else {
+				granularityControl = new SimpleGranularityControl();
+			}
+		}
 	}
 
 	@Override
@@ -589,7 +596,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			
 			String granularityControlString = "aeminium.runtime.futures.RuntimeManager.shouldSeq()";
 			if (granularityControl.hasGranularityControlExpression(element)) {
-				granularityControlString = e.expressionString + " < " + CostEstimatorProcessor.basicCosts.get("parallel");
+				granularityControlString = granularityControl.getGranularityControlString(element);
 			}
 			
 			CtConditional conditional = factory.Core().createConditional();

@@ -26,4 +26,10 @@ public class CostModelGranularityControl implements GranularityControl {
 		CostEstimation ce = CostEstimatorProcessor.database.get(e);
 		return ce != null && ce.isExpressionComplex;
 	}
+
+	@Override
+	public String getGranularityControlString(CtElement e) {
+		CostEstimation ce = CostEstimatorProcessor.database.get(e);
+		return ce.expressionString + " < " + CostEstimatorProcessor.basicCosts.get("parallel");
+	}
 }
