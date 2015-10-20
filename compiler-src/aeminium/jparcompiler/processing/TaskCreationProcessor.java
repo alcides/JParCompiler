@@ -158,7 +158,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		}
 	}
 
-	@SuppressWarnings({ "unchecked", "rawtypes" })
+	@SuppressWarnings("unchecked")
 	private void futurifyMethod(CtElement element, Factory factory,
 			CtMethod<?> m) {
 		// create if parallelize
@@ -510,7 +510,11 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private <E> void futurifyInvocation(CtInvocation<E> element) {
-		
+		CostModelFixer cFixer = new CostModelFixer(costDatabase);
+		cFixer.scan(element);		
+		CostEstimation e = getCost(element);
+		if (!CostEstimatorProcessor.basicCosts.isEmpty())
+			e.apply(CostEstimatorProcessor.basicCosts);
 		PermissionSet set = getPermissionSet(element);
 		PermissionSet parentSet = getPermissionSet(element.getParent());
 		Factory factory = element.getFactory();
@@ -582,11 +586,17 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			newFuture.addArgument(futureLambda);
 			
 			// If granularity
+			
+			String granularityControlString = "aeminium.runtime.futures.RuntimeManager.shouldSeq()";
+			if (granularityControl.hasGranularityControlExpression(element)) {
+				granularityControlString = e.expressionString + " < " + CostEstimatorProcessor.basicCosts.get("parallel");
+			}
+			
 			CtConditional conditional = factory.Core().createConditional();
 			CtExpression<?> inv = factory
 					.Code()
 					.createCodeSnippetExpression(
-							"aeminium.runtime.futures.RuntimeManager.shouldSeq() ")
+							granularityControlString)
 					.compile();
 			
 			conditional.setCondition(inv);

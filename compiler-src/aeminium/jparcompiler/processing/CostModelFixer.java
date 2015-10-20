@@ -18,6 +18,6 @@ public class CostModelFixer extends CostModelVisitor {
 				return database.put(e, ce);
 			}
 		}
-		return database.get(e);
+		return ce;
 	}
 }
