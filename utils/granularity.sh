@@ -1,7 +1,7 @@
 source utils/library.sh
 
 function tests {
-	test par_blackscholes 	run blackscholes.BlackScholes 100000
+	test par_blackscholes 	run blackscholes.BlackScholes 10000000
 	test par_fft			run fft.FFT $[16*1024*1024]
 	test par_fib			run fib.Fib 51
 	test par_health			run health.Health 6
