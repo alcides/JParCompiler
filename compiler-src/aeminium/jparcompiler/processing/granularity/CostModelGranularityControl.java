@@ -26,5 +26,4 @@ public class CostModelGranularityControl implements GranularityControl {
 		CostEstimation ce = CostEstimatorProcessor.database.get(e);
 		return ce != null && ce.isExpressionComplex;
 	}
-	
 }

@@ -158,7 +158,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		}
 	}
 
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private void futurifyMethod(CtElement element, Factory factory,
 			CtMethod<?> m) {
 		// create if parallelize
@@ -512,6 +512,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	private <E> void futurifyInvocation(CtInvocation<E> element) {
 		
 		PermissionSet set = getPermissionSet(element);
+		PermissionSet parentSet = getPermissionSet(element.getParent());
 		Factory factory = element.getFactory();
 		factory.getEnvironment().setComplianceLevel(8);
 
@@ -579,9 +580,24 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			setPermissionSet(newFuture, new PermissionSet());
 			newFuture.setType(futureType);
 			newFuture.addArgument(futureLambda);
+			
+			// If granularity
+			CtConditional conditional = factory.Core().createConditional();
+			CtExpression<?> inv = factory
+					.Code()
+					.createCodeSnippetExpression(
+							"aeminium.runtime.futures.RuntimeManager.shouldSeq() ")
+					.compile();
+			
+			conditional.setCondition(inv);
+			conditional.setThenExpression(factory.Code().createLiteral(null));
+			conditional.setElseExpression(newFuture);
+			
 			futureAssign = factory.Code().createLocalVariable(futureType, id,
-					newFuture);
+					conditional);
 			setPermissionSet(futureAssign, set.copy());
+			setPermissionSet(conditional, set.copy());
+			setPermissionSet(inv, new PermissionSet());
 		}
 		// Create future.get()
 		
@@ -618,11 +634,12 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			element.replace(ifc);
 			newElement = ifc;
 		} else {
-			CtConditional conditional = (CtConditional) factory
-					.Code()
-					.createCodeSnippetExpression("( null == null) ? null : null").compile();
-			CtBinaryOperator<Boolean> cond = (CtBinaryOperator<Boolean>) conditional.getCondition();
+			CtConditional conditional = factory.Core().createConditional();
+			CtBinaryOperator cond = factory.Core().createBinaryOperator();
+			cond.setKind(BinaryOperatorKind.EQ);
 			cond.setLeftHandOperand((CtExpression<?>) CopyCatFactory.basicClone(varRead));
+			cond.setRightHandOperand(factory.Code().createLiteral(null));
+			conditional.setCondition(cond);
 			conditional.setThenExpression((CtExpression<?>) CopyCatFactory.basicClone(element));
 			conditional.setElseExpression(read);
 			element.replace((CtExpression<E>) conditional);
@@ -630,6 +647,8 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		}
 		setPermissionSet(newElement, set.copy());
 		setPermissionSet(read, set.copy());
+		setPermissionSet(newElement.getParent(), parentSet);
+		setCost(newElement, new CostEstimation());
 		read.getParent(CtBlock.class).updateAllParentsBelow();
 
 		if (futureLambda != null) {
