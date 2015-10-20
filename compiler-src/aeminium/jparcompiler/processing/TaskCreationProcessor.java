@@ -169,6 +169,8 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	private void futurifyMethod(CtElement element, Factory factory,
 			CtMethod<?> m) {
 		// create if parallelize
+		return;
+		/*
 		Permission perm = new Permission(PermissionType.WRITE, element);
 		perm.control = true;
 		PermissionSet ps = new PermissionSet();
@@ -209,6 +211,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		setPermissionSet(i, ps.copy());
 		m.getBody().insertBegin(i);
 		m.getBody().updateAllParentsBelow();
+		*/
 	}
 
 	private void processFor(CtFor element) {		
