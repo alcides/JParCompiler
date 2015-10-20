@@ -1,5 +1,6 @@
 package blackscholes;
 
+import aeminium.runtime.futures.codegen.Sequential;
 
 /*************************************************************************
  * Compilation: javac java MyMath.java Execution: java BlackScholes S X r sigma
@@ -88,19 +89,23 @@ public class BlackScholes {
 		return Math.exp(-r * T) * mean;
 	}
 
-	public static void main(String[] args) {
-
-		int N = 3000;
-		if (args.length > 0) N = Integer.parseInt(args[0]);
-		
-		long t = System.nanoTime();
+	
+	public static void run(int N) {
 		double cP = callPrice(S, X, r, sigma, T);
 		double ca = call(S, X, r, sigma, T, N);
 		double c2 = call2(S, X, r, sigma, T, N);
-		System.out.println("% " + ((double) (System.nanoTime() - t) / (1000 * 1000 * 1000)));
 		System.out.println(cP);
 		System.out.println(ca);
 		System.out.println(c2);
+	}
+	
+	@Sequential
+	public static void main(String[] args) {
 
+		int N = 3000;
+		if (args.length > 0) N = Integer.parseInt(args[0]);		
+		long t = System.nanoTime();
+		run(N);
+		System.out.println("% " + ((double) (System.nanoTime() - t) / (1000 * 1000 * 1000)));
 	}
 }
