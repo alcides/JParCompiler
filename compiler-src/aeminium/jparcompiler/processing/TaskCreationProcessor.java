@@ -297,7 +297,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 				.createCodeSnippetStatement("aeminium.runtime.futures.HollowFuture<" + returnTypeBoxed + "> " + id
 						+ " = aeminium.runtime.futures.codegen.ForHelper.forContinuous" + boxedIterType.getSimpleName()
 						+ "Reduce1(0,1, (" + boxedIterType
-						+ " i) -> { return null; }, null, aeminium.runtime.Hints.LARGE)")
+						+ " i) -> { return null; }, null, aeminium.runtime.Hints.LARGE, 128)")
 				.compile();
 		CtInvocation<?> forHelper = (CtInvocation<?>) hollowSetting.getDefaultExpression();
 		ArrayList<CtExpression<?>> args = new ArrayList<CtExpression<?>>();
@@ -348,6 +348,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		setCost(hintTypeAccess, new CostEstimation());
 		setCost(hint, new CostEstimation());
 		args.add(hint);
+		args.add(granularityControl.getGranularityControlUnits(element));
 
 		forHelper.setArguments(args);
 		element.replace(hollowSetting);

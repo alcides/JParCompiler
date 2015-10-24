@@ -1,6 +1,7 @@
 package aeminium.jparcompiler.processing.granularity;
 
 import spoon.reflect.code.CtExpression;
+import spoon.reflect.code.CtFor;
 import spoon.reflect.declaration.CtElement;
 
 public class NoGranularityControl implements GranularityControl {
@@ -16,6 +17,11 @@ public class NoGranularityControl implements GranularityControl {
 	
 	public CtExpression<?> getGranularityControlElement(CtElement e) {
 		return e.getFactory().Code().createCodeSnippetExpression("false").compile();
+	}
+	
+	@Override
+	public CtExpression<?> getGranularityControlUnits(CtFor element) {
+		return element.getFactory().Code().createLiteral(128);
 	}
 
 }

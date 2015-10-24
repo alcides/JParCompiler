@@ -1,6 +1,7 @@
 package aeminium.jparcompiler.processing.granularity;
 
 import spoon.reflect.code.CtExpression;
+import spoon.reflect.code.CtFor;
 import spoon.reflect.declaration.CtElement;
 
 public class SimpleGranularityControl implements GranularityControl {
@@ -17,5 +18,10 @@ public class SimpleGranularityControl implements GranularityControl {
 	
 	public CtExpression<?> getGranularityControlElement(CtElement e) {
 		return e.getFactory().Code().createCodeSnippetExpression("aeminium.runtime.futures.RuntimeManager.shouldSeq()").compile();
+	}
+
+	@Override
+	public CtExpression<?> getGranularityControlUnits(CtFor element) {
+		return element.getFactory().Code().createLiteral(128);
 	}
 }
