@@ -2,13 +2,19 @@ package aeminium.jparcompiler.model;
 
 import java.util.HashMap;
 
+import aeminium.jparcompiler.processing.CostEstimatorProcessor;
+import aeminium.jparcompiler.processing.FactoryReference;
+import spoon.reflect.code.BinaryOperatorKind;
+import spoon.reflect.code.CtBinaryOperator;
+import spoon.reflect.code.CtExpression;
+import spoon.reflect.declaration.CtElement;
+
 public class CostEstimation {
 	public int instructions = 0;
 	public HashMap<String, Integer> dependencies = new HashMap<>();
-	public HashMap<String, CostEstimation> complexDependencies = new HashMap<>();
-	public int expressionCost = 0;
-	public String expressionString;
+	public HashMap<CtExpression<?>, CostEstimation> complexDependencies = new HashMap<>();
 	public boolean isExpressionComplex = false;
+	public long simpleCost = 0;
 	
 	
 	public void add(int i) {
@@ -37,55 +43,58 @@ public class CostEstimation {
 		for (String k : dependencies.keySet()) {
 			b.append("+" + k + "*" + dependencies.get(k));
 		}
-		for (String k : complexDependencies.keySet()) {
-			b.append("+" + k + "*(" + complexDependencies.get(k) + ")");
+		for (CtElement k : complexDependencies.keySet()) {
+			b.append("+" + k.toString() + "*(" + complexDependencies.get(k) + ")");
 		}
 		return b.toString();
 	}
 	
-	public void addComplex(String n, CostEstimation inside) {
-		complexDependencies.put(n, inside);
+	@SuppressWarnings("rawtypes")
+	public void addComplex(CtExpression e, CostEstimation inside) {
+		complexDependencies.put(e, inside);
 	}
-
-	public long apply(HashMap<String, Long> map) {
-		StringBuilder sb = new StringBuilder();
-		boolean hasPrevious = false;
+	
+	@SuppressWarnings("rawtypes")
+	public CtExpression getExpressionNode() {
+		if (CostEstimatorProcessor.basicCosts.isEmpty()) {
+			throw new RuntimeException("Basic Costs not calculated yet.");
+		}
+		HashMap<String, Long> map = CostEstimatorProcessor.basicCosts; 
+		simpleCost = instructions;
 		for (String k : dependencies.keySet()) {
 			if (map.containsKey(k)) {
-				expressionCost += map.get(k) * dependencies.get(k);
+				simpleCost += map.get(k) * dependencies.get(k);
 			} else {
 				//System.out.println("unknown: " + k);
 			}
 		}
-		for (String k : complexDependencies.keySet()) {
-			boolean rowNumerical = true;
-			long val = complexDependencies.get(k).apply(map);
-			long mult = 1;
-			if (val == -1) rowNumerical = false;			
+		CtExpression ret = null;
+		for (CtExpression k : complexDependencies.keySet()) {
+			CtExpression val = complexDependencies.get(k).getExpressionNode();
 			try {
-				mult = Long.parseLong(k);
+				long multiplier = Long.parseLong(k.toString());
+				long multiplied = Long.parseLong(val.toString());
+				simpleCost += multiplier * multiplied;
 			} catch (NumberFormatException e) {
-				rowNumerical = false;
-			}
-			if (rowNumerical) {
-				expressionCost += mult * val;
-			} else {
 				isExpressionComplex = true;
-				if (hasPrevious) {
-					sb.append("+");
-				}
-				sb.append("(" + k + "*" + complexDependencies.get(k).expressionString + ")");
-				hasPrevious = true;
+				CtExpression row = this.merge(k, val, BinaryOperatorKind.MUL);
+				if (ret == null) ret = row;
+				else ret = this.merge(ret, row, BinaryOperatorKind.PLUS);
+				
 			}
 		}
-		if (hasPrevious) {
-			sb.append("+");
-		}
-		sb.append(expressionCost);
-		expressionString = sb.toString();
-		if (isExpressionComplex) {
-			return -1;
-		}
-		return expressionCost;
+		CtExpression other = FactoryReference.getFactory().Code().createLiteral(simpleCost);
+		if (ret == null) ret = other;
+		else ret = this.merge(ret, other, BinaryOperatorKind.PLUS);
+		return ret;
+	}
+	
+	@SuppressWarnings("rawtypes")
+	public CtExpression merge(CtExpression a, CtExpression b, BinaryOperatorKind k) {
+		CtBinaryOperator<?> bin = a.getFactory().Core().createBinaryOperator();
+		bin.setKind(k);
+		bin.setLeftHandOperand(a);
+		bin.setRightHandOperand(b);
+		return bin;
 	}
 }

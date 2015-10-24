@@ -2,6 +2,10 @@ package aeminium.jparcompiler.processing.granularity;
 
 import aeminium.jparcompiler.model.CostEstimation;
 import aeminium.jparcompiler.processing.CostEstimatorProcessor;
+import spoon.reflect.code.BinaryOperatorKind;
+import spoon.reflect.code.CtBinaryOperator;
+import spoon.reflect.code.CtExpression;
+import spoon.reflect.code.CtLiteral;
 import spoon.reflect.declaration.CtElement;
 
 public class CostModelGranularityControl implements GranularityControl {
@@ -12,11 +16,11 @@ public class CostModelGranularityControl implements GranularityControl {
 			CostEstimatorProcessor.visitor.scan(element);
 			ce = CostEstimatorProcessor.visitor.get(element);
 		}
-		ce.apply(CostEstimatorProcessor.basicCosts);
+		ce.getExpressionNode();
 		if (ce.isExpressionComplex) {
 			return true;
 		} else {
-			long estimation = ce.expressionCost;
+			long estimation = ce.simpleCost;
 			long overhead = CostEstimatorProcessor.basicCosts.get("parallel");
 			return estimation > overhead;
 		}
@@ -27,9 +31,16 @@ public class CostModelGranularityControl implements GranularityControl {
 		return ce != null && ce.isExpressionComplex;
 	}
 
+	@SuppressWarnings("rawtypes")
 	@Override
-	public String getGranularityControlString(CtElement e) {
+	public CtExpression<?> getGranularityControlElement(CtElement e) {
 		CostEstimation ce = CostEstimatorProcessor.database.get(e);
-		return ce.expressionString + " < " + CostEstimatorProcessor.basicCosts.get("parallel");
+		CtBinaryOperator<Boolean> inf = e.getFactory().Core().createBinaryOperator();
+		inf.setKind(BinaryOperatorKind.LT);
+		inf.setLeftHandOperand(ce.getExpressionNode());
+		long threshold = CostEstimatorProcessor.basicCosts.get("parallel");
+		CtLiteral lit = e.getFactory().Code().createLiteral(threshold);
+		inf.setRightHandOperand(lit);
+		return inf;
 	}
 }

@@ -523,13 +523,13 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 
 	public <T> void visitCtCodeSnippetExpression(
 			CtCodeSnippetExpression<T> expression) {
-		//write(expression.getValue());
-		// TODO
+		setPermissionSet(expression, new PermissionSet());
+		System.out.println("Faking permission set for " + expression);
 	}
 
 	public void visitCtCodeSnippetStatement(CtCodeSnippetStatement statement) {
-		//write(statement.getValue());
-		/// TODO
+		setPermissionSet(statement, new PermissionSet());
+		System.out.println("Faking permission set for " + statement);
 	}
 
 	public <T, A extends T> void visitCtOperatorAssignment(

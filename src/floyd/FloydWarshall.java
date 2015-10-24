@@ -11,8 +11,9 @@ public class FloydWarshall {
 	public static void floydwarshall(double[][] path) {
 		for (int k = 0; k < path.length; k++) {
 			for (int i = 0; i < path.length; i++) {
+				double[] row = path[i];
 				for (int j = 0; j < path.length; j++) {
-					path[i][j] = Math.min(path[i][j], path[i][k] + path[k][j]);
+					row[j] = Math.min(path[i][j], path[i][k] + path[k][j]);
 				}
 			}
 		}

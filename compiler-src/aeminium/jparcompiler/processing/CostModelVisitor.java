@@ -1,10 +1,13 @@
 package aeminium.jparcompiler.processing;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Stack;
 
 import aeminium.jparcompiler.model.CostEstimation;
+import aeminium.jparcompiler.processing.utils.CopyCatFactory;
 import aeminium.jparcompiler.processing.utils.ForAnalyzer;
+import spoon.reflect.code.BinaryOperatorKind;
 import spoon.reflect.code.CtArrayRead;
 import spoon.reflect.code.CtArrayWrite;
 import spoon.reflect.code.CtAssert;
@@ -54,17 +57,29 @@ import spoon.reflect.declaration.CtInterface;
 import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtPackage;
 import spoon.reflect.declaration.CtParameter;
+import spoon.reflect.reference.CtExecutableReference;
+import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.visitor.CtAbstractVisitor;
 
 public class CostModelVisitor extends CtAbstractVisitor {
 	public HashMap<CtElement, CostEstimation> database = new HashMap<>();
 	Stack<CtElement> stackCheck = new Stack<CtElement>();
 	
+	CtLiteral<Integer> loopLiteral = null;
+
 	
 	public void scan(CtElement e) {
+		if (loopLiteral == null) {
+			loopLiteral = e.getFactory().Code().createLiteral(5);
+		}
 		e.accept(this);
 	}
 
+	
+	@SuppressWarnings("rawtypes")
+	public CtLiteral createLoopLiteral() {
+		return (CtLiteral) CopyCatFactory.clone(loopLiteral);
+	}
 	
 	@Override
 	public void visitCtAnonymousExecutable(CtAnonymousExecutable e) {
@@ -184,7 +199,7 @@ public class CostModelVisitor extends CtAbstractVisitor {
 		scan(doLoop.getLoopingExpression());
 		scan(doLoop.getBody());
 		ce.add(get(doLoop.getLoopingExpression()));
-		ce.addComplex("5", get(doLoop.getBody()));
+		ce.addComplex(createLoopLiteral(), get(doLoop.getBody()));
 		save(doLoop, ce);
 	}
 	
@@ -202,6 +217,7 @@ public class CostModelVisitor extends CtAbstractVisitor {
 		save(thisAccess, ce);
 	}
 	
+	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public void visitCtFor(CtFor forLoop) {
 		CostEstimation ce = new CostEstimation();
 		CostEstimation cbe = new CostEstimation();
@@ -218,13 +234,17 @@ public class CostModelVisitor extends CtAbstractVisitor {
 		scan(forLoop.getBody());
 		cbe.add(get(forLoop.getBody()));
 		
-		String k = "5";
+		CtExpression k = createLoopLiteral();
 		ForAnalyzer fa = new ForAnalyzer(forLoop, AccessPermissionsProcessor.database);
 		if ( fa.canBeAnalyzed() ) {
 			if (fa.st.toString().equals("0")) {
-				k = fa.end.toString();
+				k = fa.end;
 			} else {
-				k = "(" + fa.end + "-" + fa.st + ")";
+				CtBinaryOperator k1 = forLoop.getFactory().Core().createBinaryOperator();
+				k1.setKind(BinaryOperatorKind.MINUS);
+				k1.setLeftHandOperand(fa.end);
+				k1.setRightHandOperand(fa.st);
+				k = k1;
 			}
 		}
 		
@@ -232,6 +252,7 @@ public class CostModelVisitor extends CtAbstractVisitor {
 		save(forLoop, ce);
 	}
 	
+	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public void visitCtForEach(CtForEach foreach) {
 		CostEstimation ce = new CostEstimation();
 		CostEstimation cbe = new CostEstimation();
@@ -242,9 +263,17 @@ public class CostModelVisitor extends CtAbstractVisitor {
 		ce.add(get(foreach.getExpression()));
 		cbe.add(get(foreach.getBody()));
 		
-		String k = "5";
+		CtExpression k = createLoopLiteral();
 		if (foreach.getExpression().getType().toString().startsWith("java.util")) {
-			k = foreach.getExpression() + ".size()";
+			CtTypeReference<?> list = foreach.getFactory().Type().createReference("java.util.List");
+			CtExecutableReference ref = null;
+			for (CtExecutableReference ex : list.getDeclaredExecutables()) {
+				if (ex.toString().contains("#size()")) {
+					ref = ex;
+				}
+			}
+			CtInvocation k1 = foreach.getFactory().Code().createInvocation(foreach.getExpression(), ref, new ArrayList());
+			k = k1;
 		}
 		ce.addComplex(k, cbe);
 		save(foreach, ce);
@@ -459,7 +488,7 @@ public class CostModelVisitor extends CtAbstractVisitor {
 		scan(whileLoop.getLoopingExpression());
 		scan(whileLoop.getBody());
 		ce.add(get(whileLoop.getLoopingExpression()));
-		ce.addComplex("5", get(whileLoop.getBody()));
+		ce.addComplex(createLoopLiteral(), get(whileLoop.getBody()));
 		save(whileLoop, ce);
 	}
 	

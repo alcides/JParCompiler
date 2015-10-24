@@ -71,7 +71,7 @@ public class BlackScholes {
 	public static double estimation2(double S, double X, double r, double sigma, double T) {
 		double price = S;
 		double dt = T /10000.0;
-		for (double t = 0; t <= T; t = t + dt) {
+		for (double t = 0; t <= 10000; t++) {
 			price += r * price * dt + sigma * price * Math.sqrt(dt)
 					* StdRandom.gaussian();
 		}

@@ -47,6 +47,7 @@ public class MergeSort {
 		INSERTION_SIZE = 2000;
 	}
 
+	@Sequential
 	public void run(int size) {
 		long startT = System.currentTimeMillis();
 		initialize(size);
@@ -54,6 +55,7 @@ public class MergeSort {
 		runWorkAndTest();
 	}
 
+	@Sequential
 	public void runWorkAndTest() {
 		long startT = System.currentTimeMillis();
 		int output[] = sort(input, 0, input.length);

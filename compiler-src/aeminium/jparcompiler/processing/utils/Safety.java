@@ -16,7 +16,12 @@ public class Safety {
 		if (el instanceof CtMethod) {
 			m = (CtMethod<?>) el;
 		} else {
+			try {
 			m = el.getParent(CtMethod.class);
+			} catch (Exception e) {
+				//System.out.println(el.getParent().getParent().getParent().getParent());
+				throw e;
+			}
 		}
 		if (m == null) return true;
 		

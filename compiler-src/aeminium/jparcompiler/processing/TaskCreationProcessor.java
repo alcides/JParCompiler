@@ -59,13 +59,13 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	HashMap<CtElement, CostEstimation> costDatabase;
 	PermissionSetFixer permFixer;
 	CostModelFixer costFixer;
-	
+
 	int counterTasks;
 	HashMap<CtElement, CtVariableReference<?>> tasks = new HashMap<CtElement, CtVariableReference<?>>();
 	public static HashMap<CtMethod<?>, CtClass<?>> recAux = new HashMap<CtMethod<?>, CtClass<?>>();
-	
+
 	private static GranularityControl granularityControl;
-	
+
 	static {
 		if (System.getenv("PARALLELIZE") == null) {
 			granularityControl = new CostModelGranularityControl();
@@ -87,7 +87,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		permFixer = new PermissionSetFixer(permissionDatabase);
 		costFixer = new CostModelFixer(costDatabase);
 	}
-	
+
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public void process(CtElement element) {
@@ -103,51 +103,46 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		Factory factory = element.getFactory();
 		if (element instanceof CtMethod) {
 			CtMethod<?> m = (CtMethod<?>) element;
-			if (m.getSimpleName().equals("main")
-					&& m.hasModifier(ModifierKind.STATIC)
+			if (m.getSimpleName().equals("main") && m.hasModifier(ModifierKind.STATIC)
 					&& m.hasModifier(ModifierKind.PUBLIC)) {
 				// Surround main method with inits and shutdowns.
-				CtInvocation<?> c = factory
-						.Code()
-						.createCodeSnippetStatement(
-								"aeminium.runtime.futures.RuntimeManager.init();")
-						.compile();
+				CtInvocation<?> c = factory.Code()
+						.createCodeSnippetStatement("aeminium.runtime.futures.RuntimeManager.init();").compile();
 				m.getBody().insertBegin(c);
 				m.getBody().updateAllParentsBelow();
 				setPermissionSet(c, new PermissionSet());
 				setCost(c, new CostEstimation());
 
-				CtInvocation<?> c2 = factory
-						.Code()
-						.createCodeSnippetStatement(
-								"aeminium.runtime.futures.RuntimeManager.shutdown();")
-						.compile();
+				CtInvocation<?> c2 = factory.Code()
+						.createCodeSnippetStatement("aeminium.runtime.futures.RuntimeManager.shutdown();").compile();
 				m.getBody().insertEnd(c2);
 				m.getBody().updateAllParentsBelow();
 				setPermissionSet(c2, new PermissionSet());
 				setCost(c2, new CostEstimation());
 			} else {
 				if (!recAux.containsKey(m)) { // Not recursive
-					futurifyMethod(element, factory, m);
+					// futurifyMethod(element, factory, m); Disabled because
+					// granularity control is on call-site.
 				}
 			}
 
 		}
-		
+
 		if (element instanceof CtConstructorCall) {
 			CtConstructorCall<?> call = (CtConstructorCall<?>) element;
 			CtTypeReference<?> randomT = factory.Type().createReference("java.util.Random");
 			if (call.getType().equals(randomT) && call.getExecutable().getDeclaringType().equals(randomT)) {
 				CtTypeReference randomTS = factory.Type().createReference(ThreadLocalRandom.class);
-				CtExecutableReference ref = randomTS.getDeclaredExecutables().stream().filter(e -> e.getSimpleName().equals("current")).iterator().next();
-				CtTypeAccess<?> randomTSAccess = factory.Core()
-						.createTypeAccess();
+				CtExecutableReference ref = randomTS.getDeclaredExecutables().stream()
+						.filter(e -> e.getSimpleName().equals("current")).iterator().next();
+				CtTypeAccess<?> randomTSAccess = factory.Core().createTypeAccess();
 				randomTSAccess.setType(randomTS);
-				CtExpression current = factory.Code().createInvocation(randomTSAccess, ref, new ArrayList<CtExpression<?>>());
+				CtExpression current = factory.Code().createInvocation(randomTSAccess, ref,
+						new ArrayList<CtExpression<?>>());
 				call.replace(current);
 			}
 		}
-		
+
 		if (element instanceof CtInvocation<?>) {
 			getPermissionSet(element);
 			getPermissionSet(element.getParent()); // Double Check
@@ -163,39 +158,31 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 				processFor((CtFor) element);
 			}
 		}
+		element.getParent().updateAllParentsBelow();
 	}
 
 	@SuppressWarnings("unchecked")
-	private void futurifyMethod(CtElement element, Factory factory,
-			CtMethod<?> m) {
+	public void futurifyMethod(CtElement element, Factory factory, CtMethod<?> m) {
 		// create if parallelize
-		return;
-		/*
 		Permission perm = new Permission(PermissionType.WRITE, element);
 		perm.control = true;
 		PermissionSet ps = new PermissionSet();
 		ps.add(perm);
 
 		CtIf i = factory.Core().createIf();
-		CtExpression<?> inv = factory
-				.Code()
-				.createCodeSnippetExpression(
-						"aeminium.runtime.futures.RuntimeManager.shouldSeq()")
-				.compile();
+		CtExpression<?> inv = factory.Code()
+				.createCodeSnippetExpression("aeminium.runtime.futures.RuntimeManager.shouldSeq()").compile();
 		setPermissionSet(inv, ps.copy());
 		setCost(inv, new CostEstimation());
 		i.setCondition((CtExpression<Boolean>) inv);
 
 		CtClass<?> cl = m.getParent(CtClass.class);
-		CtExecutableReference<?> ref = factory.Executable().createReference(
-				cl.getMethodsByName(
-						SeqMethodProcessor.SEQ_PREFIX + m.getSimpleName()).get(
-						0));
+		CtExecutableReference<?> ref = factory.Executable()
+				.createReference(cl.getMethodsByName(SeqMethodProcessor.SEQ_PREFIX + m.getSimpleName()).get(0));
 
 		ArrayList<CtExpression<?>> args = new ArrayList<CtExpression<?>>();
 		for (CtParameter<?> p : m.getParameters()) {
-			CtExpression<?> arg = factory.Code().createVariableRead(
-					factory.Method().createParameterReference(p),
+			CtExpression<?> arg = factory.Code().createVariableRead(factory.Method().createParameterReference(p),
 					m.hasModifier(ModifierKind.STATIC));
 			args.add(arg);
 			setCost(arg, new CostEstimation());
@@ -205,39 +192,53 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		CtInvocation<?> body = factory.Code().createInvocation(null, ref, args);
 		setPermissionSet(body, ps.copy());
 		setCost(body, new CostEstimation());
-		
+
 		i.setThenStatement(body);
 		setCost(i, new CostEstimation());
 		setPermissionSet(i, ps.copy());
 		m.getBody().insertBegin(i);
 		m.getBody().updateAllParentsBelow();
-		*/
 	}
 
-	private void processFor(CtFor element) {		
+	private void processFor(CtFor element) {
 		// First, check conditions for parallelization.
 		ForAnalyzer fa = new ForAnalyzer(element, this.permissionDatabase);
 		if (!fa.canBeAnalyzed()) {
 			return;
 		}
+
+		if (!granularityControl.shouldParallelize(element)) {
+			return;
+		}
 		
 		int countWrites = fa.vars.count(PermissionType.WRITE);
-		
+		if (countWrites <= 1) {
+			if (granularityControl.hasGranularityControlExpression(element)) {
+				CtIf ifc = createGranularityIf(element, granularityControl.getGranularityControlElement(element));
+				CtBlock<?> bt = element.getFactory().Core().createBlock();
+				bt.addStatement((CtStatement) CopyCatFactory.clone(element));
+				ifc.setThenStatement(bt);
+				element.replace(ifc);
+				CtBlock<?> be = element.getFactory().Core().createBlock();
+				be.addStatement(element);
+				ifc.setElseStatement(be);
+				ifc.getParent().updateAllParentsBelow();
+				setPermissionSet(ifc, getPermissionSet(element));
+				ifc.getParent().updateAllParentsBelow();
+			}
+		}
 		if (countWrites == 0) {
 			generateContinuousFor(element, fa.st, fa.end, fa.type, fa.oldVars);
 		} else if (countWrites == 1) {
 			generateContinuousForReduce(element, fa.st, fa.end, fa.type, fa.oldVars);
 		} else {
-			System.out
-					.println("Not generating parallel for because of permissions. "
-							+ element.getPosition());
+			System.out.println("Not generating parallel for because of permissions. " + element.getPosition());
 		}
 	}
-	
+
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private void generateContinuousForReduce(CtFor element, CtExpression<?> st,
-			CtExpression<?> end, CtTypeReference<?> iteratorType,
-			PermissionSet oldVars) {
+	private void generateContinuousForReduce(CtFor element, CtExpression<?> st, CtExpression<?> end,
+			CtTypeReference<?> iteratorType, PermissionSet oldVars) {
 		PermissionSet vars = getPermissionSet(element.getBody());
 
 		CtElement target = null;
@@ -258,35 +259,18 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 						if (ass.getKind() == BinaryOperatorKind.PLUS) {
 							stToChange = ass;
 							if (ass.getType().getSimpleName().equals("int"))
-								incrementReducer = ass
-										.getFactory()
-										.Code()
-										.createCodeSnippetExpression(
-												"aeminium.runtime.futures.codegen.ForHelper.intSum")
-										.compile();
+								incrementReducer = ass.getFactory().Code().createCodeSnippetExpression(
+										"aeminium.runtime.futures.codegen.ForHelper.intSum").compile();
 							if (ass.getType().getSimpleName().equals("long"))
-								incrementReducer = ass
-										.getFactory()
-										.Code()
-										.createCodeSnippetExpression(
-												"aeminium.runtime.futures.codegen.ForHelper.longSum")
-										.compile();
+								incrementReducer = ass.getFactory().Code().createCodeSnippetExpression(
+										"aeminium.runtime.futures.codegen.ForHelper.longSum").compile();
 							if (ass.getType().getSimpleName().equals("float"))
-								incrementReducer = ass
-										.getFactory()
-										.Code()
-										.createCodeSnippetExpression(
-												"aeminium.runtime.futures.codegen.ForHelper.floatSum")
-										.compile();
+								incrementReducer = ass.getFactory().Code().createCodeSnippetExpression(
+										"aeminium.runtime.futures.codegen.ForHelper.floatSum").compile();
 							if (ass.getType().getSimpleName().equals("double"))
-								incrementReducer = ass
-										.getFactory()
-										.Code()
-										.createCodeSnippetExpression(
-												"aeminium.runtime.futures.codegen.ForHelper.doubleSum")
-										.compile();
-							setPermissionSet(incrementReducer,
-									new PermissionSet());
+								incrementReducer = ass.getFactory().Code().createCodeSnippetExpression(
+										"aeminium.runtime.futures.codegen.ForHelper.doubleSum").compile();
+							setPermissionSet(incrementReducer, new PermissionSet());
 							setCost(incrementReducer, new CostEstimation());
 						}
 					}
@@ -294,8 +278,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			}
 		}
 		if (incrementReducer == null) {
-			System.out.println("Not generating because of missing +=. "
-					+ element.getPosition());
+			System.out.println("Not generating because of missing +=. " + element.getPosition());
 			return;
 		}
 
@@ -306,26 +289,17 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		CtTypeReference<?> boxedIterType = iteratorType.box();
 
 		// Backup assign
-		CtOperatorAssignment<?, ?> update = (CtOperatorAssignment<?, ?>) CopyCatFactory
-				.clone(stToChange);
+		CtOperatorAssignment<?, ?> update = (CtOperatorAssignment<?, ?>) CopyCatFactory.clone(stToChange);
 
 		String id = "aeminium_for_tmp_" + counterTasks++;
 		String idRet = "aeminium_for_ret_" + counterTasks++;
-		CtLocalVariable<?> hollowSetting = factory
-				.Code()
-				.createCodeSnippetStatement(
-						"aeminium.runtime.futures.HollowFuture<"
-								+ returnTypeBoxed
-								+ "> "
-								+ id
-								+ " = aeminium.runtime.futures.codegen.ForHelper.forContinuous"
-								+ boxedIterType.getSimpleName()
-								+ "Reduce1(0,1, ("
-								+ boxedIterType
-								+ " i) -> { return null; }, null, aeminium.runtime.Hints.LARGE)")
+		CtLocalVariable<?> hollowSetting = factory.Code()
+				.createCodeSnippetStatement("aeminium.runtime.futures.HollowFuture<" + returnTypeBoxed + "> " + id
+						+ " = aeminium.runtime.futures.codegen.ForHelper.forContinuous" + boxedIterType.getSimpleName()
+						+ "Reduce1(0,1, (" + boxedIterType
+						+ " i) -> { return null; }, null, aeminium.runtime.Hints.LARGE)")
 				.compile();
-		CtInvocation<?> forHelper = (CtInvocation<?>) hollowSetting
-				.getDefaultExpression();
+		CtInvocation<?> forHelper = (CtInvocation<?>) hollowSetting.getDefaultExpression();
 		ArrayList<CtExpression<?>> args = new ArrayList<CtExpression<?>>();
 		st.addTypeCast(iteratorType);
 		end.addTypeCast(iteratorType);
@@ -335,8 +309,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		CtBlock<?> block = (CtBlock<?>) element.getBody();
 
 		// VarName
-		String varName = ((CtLocalVariable<?>) element.getForInit().get(0))
-				.getSimpleName();
+		String varName = ((CtLocalVariable<?>) element.getForInit().get(0)).getSimpleName();
 		lambda.getParameters().get(0).setSimpleName(varName);
 
 		CtLocalVariable<?> varDecl = factory.Core().createLocalVariable();
@@ -346,8 +319,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		stToChange.replace(varDecl);
 
 		CtReturn<?> ret = factory.Core().createReturn();
-		CtVariableRead varRead = (CtVariableRead) factory.Code()
-				.createVariableRead(varDecl.getReference(), false);
+		CtVariableRead varRead = (CtVariableRead) factory.Code().createVariableRead(varDecl.getReference(), false);
 		ret.setReturnedExpression(varRead);
 		block.addStatement(ret);
 
@@ -356,13 +328,9 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		args.add(incrementReducer);
 
 		// Hints
-		int c = element
-				.getBody()
-				.getElements(
-						(e) -> (e instanceof CtWhile || e instanceof CtFor || e instanceof CtInvocation))
-				.size();
-		CtTypeReference hintType = factory.Type().createReference(
-				"aeminium.runtime.Hints");
+		int c = element.getBody()
+				.getElements((e) -> (e instanceof CtWhile || e instanceof CtFor || e instanceof CtInvocation)).size();
+		CtTypeReference hintType = factory.Type().createReference("aeminium.runtime.Hints");
 		CtTypeAccess hintTypeAccess = factory.Core().createTypeAccess();
 		hintTypeAccess.setType(hintType);
 		CtFieldRead hint = factory.Core().createFieldRead();
@@ -390,12 +358,10 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 
 		// future.get()
 		CtInvocation<?> read = factory.Core().createInvocation();
-		read.setTarget(factory.Code().createVariableRead(
-				hollowSetting.getReference(), false));
+		read.setTarget(factory.Code().createVariableRead(hollowSetting.getReference(), false));
 		read.setArguments(new ArrayList<CtExpression<?>>());
 		read.setType((CtTypeReference) returnType);
-		read.setExecutable(getExecutableReferenceOfMethodByName(
-				hollowSetting.getType(), "get"));
+		read.setExecutable(getExecutableReferenceOfMethodByName(hollowSetting.getType(), "get"));
 		update.setAssignment((CtExpression) read);
 		setPermissionSet(read, oldVars);
 		setPermissionSet(update, oldVars);
@@ -405,9 +371,8 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private void generateContinuousFor(CtFor element, CtExpression<?> st,
-			CtExpression<?> end, CtTypeReference<?> iteratorType,
-			PermissionSet oldBodyVars) {
+	private void generateContinuousFor(CtFor element, CtExpression<?> st, CtExpression<?> end,
+			CtTypeReference<?> iteratorType, PermissionSet oldBodyVars) {
 		Factory factory = element.getFactory();
 		factory.getEnvironment().setComplianceLevel(8);
 
@@ -422,16 +387,13 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		if (counterTasks == 8)
 			bodyVars.printSet();
 
-		// factory.Code().createCodeSnippetStatement("aeminium.runtime.futures.codegen.ForHelper.forContinuousInt(0,1, (Integer i) -> { return null; })").compile();
+		// factory.Code().createCodeSnippetStatement("aeminium.runtime.futures.codegen.ForHelper.forContinuousInt(0,1,
+		// (Integer i) -> { return null; })").compile();
 		CtInvocation hollowSetting = factory.Core().createInvocation();
-		CtTypeReference futureType = factory.Type().createReference(
-				"aeminium.runtime.futures.codegen.ForHelper");
-		CtExecutableReference<?> methodReferenceExpression = futureType
-				.getDeclaredExecutables()
-				.stream()
-				.filter((e) -> e.getSimpleName().equals(
-						"forContinuous" + boxedIterType.getSimpleName()))
-				.iterator().next();
+		CtTypeReference futureType = factory.Type().createReference("aeminium.runtime.futures.codegen.ForHelper");
+		CtExecutableReference<?> methodReferenceExpression = futureType.getDeclaredExecutables().stream()
+				.filter((e) -> e.getSimpleName().equals("forContinuous" + boxedIterType.getSimpleName())).iterator()
+				.next();
 
 		CtTypeAccess staticReference = factory.Core().createTypeAccess();
 		staticReference.setType(futureType);
@@ -447,8 +409,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		CtParameter par = factory.Core().createParameter();
 
 		// VarName
-		String varName = ((CtLocalVariable<?>) element.getForInit().get(0))
-				.getSimpleName();
+		String varName = ((CtLocalVariable<?>) element.getForInit().get(0)).getSimpleName();
 		par.setSimpleName(varName);
 		par.setType(boxedIterType);
 		lambda.addParameter(par);
@@ -464,13 +425,9 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		args.add(lambda);
 
 		// Hints
-		int c = element
-				.getBody()
-				.getElements(
-						(e) -> (e instanceof CtWhile || e instanceof CtFor || e instanceof CtInvocation))
-				.size();
-		CtTypeReference hintType = factory.Type().createReference(
-				"aeminium.runtime.Hints");
+		int c = element.getBody()
+				.getElements((e) -> (e instanceof CtWhile || e instanceof CtFor || e instanceof CtInvocation)).size();
+		CtTypeReference hintType = factory.Type().createReference("aeminium.runtime.Hints");
 		CtTypeAccess hintTypeAccess = factory.Core().createTypeAccess();
 		hintTypeAccess.setType(hintType);
 		CtFieldRead hint = factory.Core().createFieldRead();
@@ -490,8 +447,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		// Shadow Variables
 		ArrayList<CtLocalVariable<?>> lst = new ArrayList<CtLocalVariable<?>>();
 		lst.add(((CtLocalVariable<?>) element.getForInit().get(0)));
-		List<CtLocalVariable<?>> shadows = createShadowVariables(lambda, bodyVars,
-				factory, lst);
+		List<CtLocalVariable<?>> shadows = createShadowVariables(lambda, bodyVars, factory, lst);
 		replaceShadowVariables(lambda, shadows);
 
 		// finalize
@@ -504,11 +460,9 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		hollowSetting.getParent().updateAllParentsBelow();
 
 		// Fix permissions on final object
-		CtLambda<?> finalLambda = (CtLambda<?>) hollowSetting.getArguments()
-				.get(2);
+		CtLambda<?> finalLambda = (CtLambda<?>) hollowSetting.getArguments().get(2);
 		setPermissionSet(finalLambda, oldBodyVars);
-		setPermissionSet(finalLambda.getBody().getLastStatement(),
-				new PermissionSet());
+		setPermissionSet(finalLambda.getBody().getLastStatement(), new PermissionSet());
 		setPermissionSet(hollowSetting, oldVars);
 		permFixer.scan(hollowSetting);
 		costFixer.scan(hollowSetting);
@@ -520,18 +474,17 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private <E> void futurifyInvocation(CtInvocation<E> element) {
-		CostModelFixer cFixer = new CostModelFixer(costDatabase);
-		cFixer.scan(element);		
-		CostEstimation e = getCost(element);
-		if (!CostEstimatorProcessor.basicCosts.isEmpty())
-			e.apply(CostEstimatorProcessor.basicCosts);
-		PermissionSet set = getPermissionSet(element);
-		PermissionSet parentSet = getPermissionSet(element.getParent());
 		Factory factory = element.getFactory();
 		factory.getEnvironment().setComplianceLevel(8);
-
-		if (shouldFuturify(element))
+		
+		CostModelFixer cFixer = new CostModelFixer(costDatabase);
+		cFixer.scan(element);
+		PermissionSet set = getPermissionSet(element);
+		PermissionSet parentSet = getPermissionSet(element.getParent());
+		
+		if (!granularityControl.shouldParallelize(element)) {
 			return;
+		}
 
 		CtTypeReference<?> t = element.getType();
 		CtTypeReference<?> originalType = element.getType();
@@ -547,44 +500,35 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		CtBlock block = element.getParent(CtBlock.class);
 		SourcePosition pos = element.getPosition();
 
-		CtMethod<?> meth = (CtMethod<?>) element.getExecutable()
-				.getDeclaration();
+		CtMethod<?> meth = (CtMethod<?>) element.getExecutable().getDeclaration();
 		CtLocalVariable<?> futureAssign = null;
 		CtLambda futureLambda = null;
 		CtConstructorCall newFuture = null;
 
 		if (recAux.containsKey(meth)) {
 			CtTypeReference futureType = recAux.get(meth).getReference();
-			CtTypeReference futureType2 = factory.Type().createReference(
-					"aeminium.runtime.futures.FBody");
-			CtTypeReference runtimeManager = factory.Type().createReference(
-					RuntimeManager.class);
-			CtTypeAccess<?> accRuntimeManager = factory.Core()
-					.createTypeAccess();
+			CtTypeReference futureType2 = factory.Type().createReference("aeminium.runtime.futures.FBody");
+			CtTypeReference runtimeManager = factory.Type().createReference(RuntimeManager.class);
+			CtTypeAccess<?> accRuntimeManager = factory.Core().createTypeAccess();
 			accRuntimeManager.setType(runtimeManager);
-			CtExecutableReference createTaskRef = getExecutableReferenceOfMethodByName(
-					runtimeManager, "createTask");
+			CtExecutableReference createTaskRef = getExecutableReferenceOfMethodByName(runtimeManager, "createTask");
 
 			newFuture = factory.Core().createConstructorCall();
 			newFuture.setType(futureType);
 			newFuture.setArguments(element.getArguments());
-			CtInvocation<?> createTask = factory.Code().createInvocation(
-					accRuntimeManager, createTaskRef, newFuture);
-			futureAssign = factory.Code().createLocalVariable(futureType2, id,
-					createTask);
+			CtInvocation<?> createTask = factory.Code().createInvocation(accRuntimeManager, createTaskRef, newFuture);
+			futureAssign = factory.Code().createLocalVariable(futureType2, id, createTask);
 			setPermissionSet(createTask, new PermissionSet());
 			setPermissionSet(newFuture, new PermissionSet());
 			setPermissionSet(futureAssign, set.copy());
 
 		} else {
 			// Create Assign of Future
-			CtTypeReference futureType = factory.Type().createReference(
-					"aeminium.runtime.futures.Future");
+			CtTypeReference futureType = factory.Type().createReference("aeminium.runtime.futures.Future");
 			futureLambda = factory.Core().createLambda();
 			List futureLambdaParams = new ArrayList<CtParameter>();
 			CtParameter futureLambdaParam0 = factory.Core().createParameter();
-			futureLambdaParam0.setType(factory.Type().createReference(
-					"aeminium.runtime.Task"));
+			futureLambdaParam0.setType(factory.Type().createReference("aeminium.runtime.Task"));
 			futureLambdaParam0.setSimpleName("aeminium_runtime_tmp");
 			futureLambdaParams.add(futureLambdaParam0);
 			futureLambda.setParameters(futureLambdaParams);
@@ -596,55 +540,42 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			newFuture.addArgument(futureLambda);
 			
 			// If granularity
-			
-			String granularityControlString = "aeminium.runtime.futures.RuntimeManager.shouldSeq()";
+			CtExpression save = newFuture;
 			if (granularityControl.hasGranularityControlExpression(element)) {
-				granularityControlString = granularityControl.getGranularityControlString(element);
+				CtConditional conditional = createGranularityConditional(element, granularityControl.getGranularityControlElement(element));
+				conditional.setThenExpression(factory.Code().createLiteral(null));
+				conditional.setElseExpression(newFuture);
+				setPermissionSet(conditional, getPermissionSet(element));
+				save = conditional;
+				setPermissionSet(conditional, set.copy());
+				setPermissionSet(conditional, new PermissionSet());
 			}
-			
-			CtConditional conditional = factory.Core().createConditional();
-			CtExpression<?> inv = factory
-					.Code()
-					.createCodeSnippetExpression(
-							granularityControlString)
-					.compile();
-			
-			conditional.setCondition(inv);
-			conditional.setThenExpression(factory.Code().createLiteral(null));
-			conditional.setElseExpression(newFuture);
-			
-			futureAssign = factory.Code().createLocalVariable(futureType, id,
-					conditional);
 			setPermissionSet(futureAssign, set.copy());
-			setPermissionSet(conditional, set.copy());
-			setPermissionSet(inv, new PermissionSet());
+			futureAssign = factory.Code().createLocalVariable(futureType, id, save);
+			futureAssign.updateAllParentsBelow();
 		}
 		// Create future.get()
-		
+
 		CtInvocation<E> read = factory.Core().createInvocation();
-		CtVariableAccess<?> varRead = factory.Code().createVariableRead(
-				factory.Code().createLocalVariableReference(futureAssign),
-				false);
+		CtVariableAccess<?> varRead = factory.Code()
+				.createVariableRead(factory.Code().createLocalVariableReference(futureAssign), false);
 		read.setTarget(varRead);
 		read.setArguments(new ArrayList<CtExpression<?>>());
 		read.setType(element.getType());
 
 		if (futureLambda != null) {
-			read.setExecutable((CtExecutableReference<E>) getExecutableReferenceOfMethodByName(
-					futureAssign.getType(), "get"));
+			read.setExecutable(
+					(CtExecutableReference<E>) getExecutableReferenceOfMethodByName(futureAssign.getType(), "get"));
 		} else {
 			read.setExecutable((CtExecutableReference<E>) getExecutableReferenceOfMethodByName(
-					factory.Type().createReference(
-							"aeminium.runtime.futures.FBody"), "get"));
+					factory.Type().createReference("aeminium.runtime.futures.FBody"), "get"));
 		}
-		if (!(element.getParent() instanceof CtBlock))
+		if (!isStatement(element))
 			read.addTypeCast(originalType);
-		
+
 		CtElement newElement;
 		if (isStatement(element)) {
-			CtIf ifc = (CtIf) factory
-					.Code()
-					.createCodeSnippetStatement("if ( null == null) {} else {}").compile();
+			CtIf ifc = (CtIf) factory.Code().createCodeSnippetStatement("if ( null == null) {} else {}").compile();
 			CtBinaryOperator<Boolean> cond = (CtBinaryOperator<Boolean>) ifc.getCondition();
 			cond.setLeftHandOperand((CtExpression<?>) CopyCatFactory.basicClone(varRead));
 			CtBlock bt = ifc.getThenStatement();
@@ -676,8 +607,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 
 			if (t.getSimpleName().equals("Void")) {
 				CtReturn<?> nullret = factory.Core().createReturn();
-				nullret.setReturnedExpression(factory.Code()
-						.createLiteral(null));
+				nullret.setReturnedExpression(factory.Code().createLiteral(null));
 				setPermissionSet(nullret, new PermissionSet());
 
 				CtBlock<?> futureLambdaBlock = factory.Core().createBlock();
@@ -701,10 +631,9 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		for (CtStatement stmt : block.getStatements()) {
 			if (stmt == newElement)
 				break;
-			if (stmt.getPosition() != null
-					&& stmt.getPosition().getLine() >= pos.getLine())
+			if (stmt.getPosition() != null && stmt.getPosition().getLine() >= pos.getLine())
 				break;
-			
+
 			List<CtVariableAccess> accesses = Query.getElements(element, new Filter<CtVariableAccess>() {
 				@Override
 				public boolean matches(CtVariableAccess acc) {
@@ -713,8 +642,8 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 					}
 					return false;
 				}
-			}); 
-			
+			});
+
 			// Hard requirement for local variables to be declared
 			if (stmt instanceof CtLocalVariable) {
 				for (Permission pi : set)
@@ -747,8 +676,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 				if (p2 != null) {
 					if (pi.control == true)
 						continue;
-					if (pi.type == PermissionType.READ
-							&& p2.type == PermissionType.READ) {
+					if (pi.type == PermissionType.READ && p2.type == PermissionType.READ) {
 						continue;
 					}
 					// This is a dependency.
@@ -765,8 +693,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			}
 		}
 		for (CtVariableReference<?> ref : taskDeps) {
-			CtVariableAccess<?> readTask = factory.Code().createVariableRead(
-					ref, false);
+			CtVariableAccess<?> readTask = factory.Code().createVariableRead(ref, false);
 			newFuture.addArgument(readTask);
 		}
 
@@ -784,6 +711,8 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			block.updateAllParentsBelow();
 		} else {
 			permFixer.scan(previousStatement.getParent(CtBlock.class).getParent());
+			previousStatement.updateAllParentsBelow();
+			futureAssign.updateAllParentsBelow();
 			insertAfter(previousStatement, futureAssign);
 			for (CtLocalVariable<?> lv : shadows) {
 				insertAfter(previousStatement, lv);
@@ -800,8 +729,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	}
 
 	@SuppressWarnings("rawtypes")
-	private CtExecutableReference getExecutableReferenceOfMethodByName(
-			CtTypeReference<?> t, String name) {
+	private CtExecutableReference getExecutableReferenceOfMethodByName(CtTypeReference<?> t, String name) {
 		CtExecutableReference<?> refGet = null;
 		do {
 			if (t.getDeclaredExecutables() != null) {
@@ -820,8 +748,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	private void replaceShadowVariables(CtLambda futureLambda,
-			List<CtLocalVariable<?>> shadows) {
+	private void replaceShadowVariables(CtLambda futureLambda, List<CtLocalVariable<?>> shadows) {
 		// Replace variable accesses by shadows
 		if (shadows.size() > 0) {
 			Query.getElements(futureLambda, (e) -> {
@@ -842,22 +769,24 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	private boolean isParent(CtElement parent, CtElement child) {
 		CtElement p = child.getParent();
 		while (p != null) {
-			if (p.equals(parent)) return true;
+			if (p.equals(parent))
+				return true;
 			p = p.getParent();
 		}
 		return false;
 	}
-	
+
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	private List<CtLocalVariable<?>> createShadowVariables(CtLambda futureLambda, PermissionSet set,
-			Factory factory, List<CtLocalVariable<?>> exceptions) {
+	private List<CtLocalVariable<?>> createShadowVariables(CtLambda futureLambda, PermissionSet set, Factory factory,
+			List<CtLocalVariable<?>> exceptions) {
 		List<CtLocalVariable<?>> shadows = new ArrayList<CtLocalVariable<?>>();
 		List<CtLocalVariable<?>> originals = new ArrayList<CtLocalVariable<?>>();
 		Query.getElements(futureLambda, new Filter<CtVariableAccess>() {
 
 			@Override
 			public boolean matches(CtVariableAccess acc) {
-				if (acc.getVariable() == null) return false;
+				if (acc.getVariable() == null)
+					return false;
 				CtElement decl = null;
 				try {
 					decl = acc.getVariable().getDeclaration();
@@ -866,80 +795,68 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 				}
 				if (decl instanceof CtLocalVariable) {
 					CtLocalVariable lv = (CtLocalVariable) decl;
-					
-					if (isParent(futureLambda, lv)) return false;
-					
+
+					if (isParent(futureLambda, lv))
+						return false;
+
 					if (exceptions != null && exceptions.contains(lv))
 						return false;
-					
+
 					if (originals.contains(lv)) {
 						return false;
 					}
-					
+
 					originals.add(lv);
 					CtLocalVariable ass = factory.Core().createLocalVariable();
 					CtVariableRead<?> r = factory.Core().createVariableRead();
 					r.setVariable(lv.getReference());
 					ass.setDefaultExpression(r);
-					ass.setSimpleName(lv.getSimpleName() + "_aeminium_"
-							+ (counterTasks - 1));
+					ass.setSimpleName(lv.getSimpleName() + "_aeminium_" + (counterTasks - 1));
 					ass.addModifier(ModifierKind.FINAL);
 					ass.setType(lv.getType());
 					shadows.add(ass);
 					setPermissionSet(r, new PermissionSet());
 					setPermissionSet(ass, new PermissionSet());
 				}
-				
+
 				return false;
 			}
-			
+
 		});
-		/*		
-		List<CtLocalVariable<?>> shadows = new ArrayList<CtLocalVariable<?>>();
-		for (Permission pi : set) {
-			if (pi.target instanceof CtLocalVariable) {
-				CtLocalVariable lv = (CtLocalVariable<?>) pi.target;
-				if (exceptions != null && exceptions.contains(lv))
-					continue;
-				if (shadows.contains(lv))
-					continue;
-				CtLocalVariable ass = factory.Core().createLocalVariable();
-				CtVariableRead<?> r = factory.Core().createVariableRead();
-				r.setVariable(lv.getReference());
-				ass.setDefaultExpression(r);
-				ass.setSimpleName(lv.getSimpleName() + "_aeminium_"
-						+ (counterTasks - 1));
-				ass.addModifier(ModifierKind.FINAL);
-				ass.setType(lv.getType());
-				shadows.add(ass);
-				setPermissionSet(r, new PermissionSet());
-				setPermissionSet(ass, new PermissionSet());
-			}
-		}
-		*/
+		/*
+		 * List<CtLocalVariable<?>> shadows = new
+		 * ArrayList<CtLocalVariable<?>>(); for (Permission pi : set) { if
+		 * (pi.target instanceof CtLocalVariable) { CtLocalVariable lv =
+		 * (CtLocalVariable<?>) pi.target; if (exceptions != null &&
+		 * exceptions.contains(lv)) continue; if (shadows.contains(lv))
+		 * continue; CtLocalVariable ass = factory.Core().createLocalVariable();
+		 * CtVariableRead<?> r = factory.Core().createVariableRead();
+		 * r.setVariable(lv.getReference()); ass.setDefaultExpression(r);
+		 * ass.setSimpleName(lv.getSimpleName() + "_aeminium_" + (counterTasks -
+		 * 1)); ass.addModifier(ModifierKind.FINAL); ass.setType(lv.getType());
+		 * shadows.add(ass); setPermissionSet(r, new PermissionSet());
+		 * setPermissionSet(ass, new PermissionSet()); } }
+		 */
 		return shadows;
 	}
 
-	private <E> boolean shouldFuturify(CtInvocation<E> element) {
+	public <E> boolean shouldFuturify(CtInvocation<E> element) {
 		if (Safety.isSafe(element.getExecutable().getDeclaration())) {
 			return true;
 		}
 		if (element.getExecutable().toString().startsWith("java.util.Random")) {
 			return true;
 		}
-		if (element.getExecutable().toString()
-				.equals("java.io.PrintStream.println")) {
+		if (element.getExecutable().toString().equals("java.io.PrintStream.println")) {
 			return true;
 		}
-		if (element.getExecutable().toString()
-				.equals("java.util.Arrays.asList")) {
+		if (element.getExecutable().toString().equals("java.util.Arrays.asList")) {
 			return true;
 		}
 		if (element.getExecutable().toString().startsWith("java.util.List")) {
 			return true;
 		}
-		if (element.getExecutable().toString()
-				.startsWith("java.util.ArrayList")) {
+		if (element.getExecutable().toString().startsWith("java.util.ArrayList")) {
 			return true;
 		}
 		if (element.getExecutable().toString().startsWith("java.lang")) {
@@ -963,16 +880,13 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	public void insertAfter(CtElement a1, CtStatement a2) {
 		CtStatementList e = a1.getParent(CtStatementList.class);
 		if (e == null) {
-			throw new RuntimeException("Cannot insert after this element: "
-					+ a1);
+			throw new RuntimeException("Cannot insert after this element: " + a1);
 		}
 		if (getPermissionSet(a1) == null) {
-			throw new RuntimeException("Statement " + a1
-					+ " does not have a PermissionSet");
+			throw new RuntimeException("Statement " + a1 + " does not have a PermissionSet");
 		}
 		if (getPermissionSet(a2) == null) {
-			throw new RuntimeException("Statement " + a2
-					+ " does not have a PermissionSet");
+			throw new RuntimeException("Statement " + a2 + " does not have a PermissionSet");
 		}
 		PermissionSet backup = getPermissionSet(e);
 
@@ -990,27 +904,44 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		setPermissionSet(e, backup);
 	}
 	
-	private boolean isStatement(CtInvocation<?> element) {
-		CtElement p = element.getParent();
-		if (p instanceof CtStatementList) return true;
-		if (p instanceof CtBlock) return true;
-		if (p instanceof CtIf && ((CtIf) p).getCondition() != element  ) return true;
-		return false;
+	@SuppressWarnings("unchecked")
+	private CtIf createGranularityIf(CtElement element, CtExpression<?> decision) {
+		CtIf i = FactoryReference.getFactory().Core().createIf();
+		i.setCondition((CtExpression<Boolean>) decision);
+		return i;
 	}
 	
+	@SuppressWarnings("unchecked")
+	private CtConditional<?> createGranularityConditional(CtElement element, CtExpression<?> cond) {
+		CtConditional<?> i = FactoryReference.getFactory().Core().createConditional();
+		i.setCondition((CtExpression<Boolean>) cond);
+		return i;
+	}
+
+	private boolean isStatement(CtInvocation<?> element) {
+		CtElement p = element.getParent();
+		if (p instanceof CtStatementList)
+			return true;
+		if (p instanceof CtBlock)
+			return true;
+		if (p instanceof CtIf && ((CtIf) p).getCondition() != element)
+			return true;
+		return false;
+	}
+
 	public void copyInto(CtElement from, CtElement to) {
 		copyCost(from, to);
 		copyPermissionSet(from, to);
 	}
-	
+
 	public void setCost(CtElement el, CostEstimation ce) {
 		costDatabase.put(el, ce);
 	}
-	
+
 	public void copyCost(CtElement from, CtElement to) {
 		setCost(to, getCost(from));
 	}
-	
+
 	public CostEstimation getCost(CtElement e) {
 		for (int i = 0; i < 2; i++) {
 			CostEstimation vars = costDatabase.get(e);
@@ -1018,19 +949,22 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 				return vars;
 			permFixer.scan(e.getParent());
 		}
-		throw new RuntimeException("Missing cost database for " + e.hashCode()
-				+ " / " + e + " / " + e.getClass());
+		throw new RuntimeException("Missing cost database for " + e.hashCode() + " / " + e + " / " + e.getClass());
 	}
-	
+
 	public PermissionSet getPermissionSet(CtElement element) {
 		for (int i = 0; i < 2; i++) {
 			PermissionSet vars = permissionDatabase.get(element);
 			if (vars != null)
 				return vars;
-			permFixer.scan(element.getParent());
+			try {
+				permFixer.scan(element.getParent());
+			} catch (Exception e) {
+				return new PermissionSet(); // TODO: understand this
+			}
 		}
-		throw new RuntimeException("Missing permission database for " + element.hashCode()
-				+ " / " + element + " / " + element.getClass());
+		throw new RuntimeException(
+				"Missing permission database for " + element.hashCode() + " / " + element + " / " + element.getClass());
 	}
 
 	protected void setPermissionSet(CtElement e, PermissionSet s) {

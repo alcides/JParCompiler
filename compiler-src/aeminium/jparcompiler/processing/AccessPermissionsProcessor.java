@@ -17,6 +17,7 @@ public class AccessPermissionsProcessor<T> extends AbstractProcessor<CtMethod<T>
 	
 	@Override
 	public void process(CtMethod<T> meth) {
+		FactoryReference.setFactory(meth.getFactory());
 		meth.accept(p);
 	}
 

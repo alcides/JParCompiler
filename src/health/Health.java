@@ -55,8 +55,9 @@ public class Health {
 		village.tick();
 	}
 	
-	public static Village allocate_village(int level, int vid, Village back) {		
-		int personnel = (int) Math.pow(2, level);
+	public static Village allocate_village(int level, int vid, Village back) {	
+		double p1 = Math.pow(2, level);
+		int personnel = (int) p1;
 		int population = personnel * Health.sim_population_ratio;
 		
 		Village current;
