@@ -1,12 +1,15 @@
 package aeminium.jparcompiler.processing;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Stack;
 
 import aeminium.jparcompiler.model.CostEstimation;
 import aeminium.jparcompiler.processing.utils.CopyCatFactory;
 import aeminium.jparcompiler.processing.utils.ForAnalyzer;
+import aeminium.jparcompiler.processing.utils.ModelUtils;
+import aeminium.jparcompiler.processing.utils.SizeHelper;
 import spoon.reflect.code.BinaryOperatorKind;
 import spoon.reflect.code.CtArrayRead;
 import spoon.reflect.code.CtArrayWrite;
@@ -69,6 +72,8 @@ public class CostModelVisitor extends CtAbstractVisitor {
 
 	
 	public void scan(CtElement e) {
+		if (e == null)
+			return;
 		if (loopLiteral == null) {
 			loopLiteral = e.getFactory().Code().createLiteral(5);
 		}
@@ -302,13 +307,17 @@ public class CostModelVisitor extends CtAbstractVisitor {
 		if (invocation.getExecutable() != null) {
 			if (invocation.getExecutable().getDeclaration() != null) {
 				CtExecutable<T> ex = invocation.getExecutable().getDeclaration();
-				if (!stackCheck.contains(ex)) {
+				int occurrences = Collections.frequency(stackCheck, ex);
+				if (occurrences < 2) { 
+					// Two times works best for recursive calls
+					// Once is done by using:
+					// !stackCheck.contains(ex)
 					if (!database.containsKey(ex)) {
 						stackCheck.add(ex);
 						scan(ex);
 						stackCheck.pop();
 					}
-					ce.add(get(ex));
+					ce.add(ModelUtils.replaceParameters(invocation, get(ex), ex));
 				} else {
 					ce.add("recursion", 1);
 				}
@@ -334,7 +343,11 @@ public class CostModelVisitor extends CtAbstractVisitor {
 	public <T> void visitCtLocalVariable(CtLocalVariable<T> localVariable) {
 		CostEstimation ce = new CostEstimation();
 		ce.add("access", 1);
-		// TODO: allocation of local variable
+		ce.add("memory", SizeHelper.getSizeOf(localVariable.getType()));
+		if (localVariable.getDefaultExpression() != null) {
+			scan(localVariable.getDefaultExpression());
+			ce.add(get(localVariable.getDefaultExpression()));
+		}
 		save(localVariable, ce);
 	}
 	
@@ -347,7 +360,22 @@ public class CostModelVisitor extends CtAbstractVisitor {
 	public <T> void visitCtNewArray(CtNewArray<T> newArray) {
 		CostEstimation ce = new CostEstimation();
 		ce.add("access", 1);
-		// TODO: allocation of array
+		if (newArray.getDimensionExpressions().size() > 0) {
+			int mul = SizeHelper.getSizeOf(newArray.getType());
+			
+			for (CtExpression<Integer> dim : newArray.getDimensionExpressions()) {
+				if (dim instanceof CtLiteral) {
+					mul *= (Integer) ((CtLiteral<Integer>) dim).getValue();
+				} else {
+					CostEstimation nce = new CostEstimation();
+					nce.add("memory", mul);
+					ce.addComplex(ModelUtils.model(dim), nce);
+				}
+			}
+			ce.add("memory", mul);
+		} else {
+			ce.add("memory", SizeHelper.getSizeOf(newArray.getType()) * newArray.getElements().size());
+		}
 		save(newArray, ce);
 	}
 	

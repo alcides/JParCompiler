@@ -8,8 +8,10 @@ import spoon.reflect.code.BinaryOperatorKind;
 import spoon.reflect.code.CtBinaryOperator;
 import spoon.reflect.code.CtExpression;
 import spoon.reflect.declaration.CtElement;
+import spoon.reflect.factory.Factory;
 
 public class CostEstimation {
+
 	public int instructions = 0;
 	public HashMap<String, Integer> dependencies = new HashMap<>();
 	public HashMap<CtExpression<?>, CostEstimation> complexDependencies = new HashMap<>();
@@ -34,6 +36,9 @@ public class CostEstimation {
 		this.instructions += other.instructions;
 		for (String k : other.dependencies.keySet()) {
 			this.add(k, other.dependencies.get(k));
+		}
+		for (CtExpression<?> k : other.complexDependencies.keySet()) {
+			this.addComplex(k, other.complexDependencies.get(k));
 		}
 	}
 	
@@ -96,5 +101,24 @@ public class CostEstimation {
 		bin.setLeftHandOperand(a);
 		bin.setRightHandOperand(b);
 		return bin;
+	}
+	
+	public CtExpression<?> getMemory(Factory f, int overhead) {
+		int c = overhead;
+		if (this.dependencies.get("memory") != null) {
+			c = this.dependencies.get("memory");
+		}
+		CtExpression<?> original = f.Code().createLiteral(c);
+		CtExpression<?> tmp = original;
+		for (CtExpression<?> k : this.complexDependencies.keySet()) {
+			CtExpression<?> n = this.complexDependencies.get(k).getMemory(f);
+			CtExpression<?> mul = merge(k, n, BinaryOperatorKind.MUL);
+			tmp = merge(tmp, mul, BinaryOperatorKind.PLUS);
+		}
+		return tmp;
+	}
+	
+	public CtExpression<?> getMemory(Factory f) {
+		return getMemory(f, 0);
 	}
 }

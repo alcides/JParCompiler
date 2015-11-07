@@ -24,6 +24,8 @@ public class MergeSort {
 	protected int[] result;
 	protected int size;
 
+	
+	@Sequential
 	public static void main(String[] args) {
 		int problemSize = 4194304;
 

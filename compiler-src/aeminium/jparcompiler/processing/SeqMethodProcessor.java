@@ -5,6 +5,12 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
+import aeminium.jparcompiler.model.CostEstimation;
+import aeminium.jparcompiler.processing.utils.CopyCatFactory;
+import aeminium.jparcompiler.processing.utils.Safety;
+import aeminium.jparcompiler.processing.utils.SizeHelper;
+import aeminium.runtime.futures.RuntimeManager;
+import aeminium.runtime.futures.codegen.NoVisit;
 import spoon.processing.AbstractProcessor;
 import spoon.reflect.code.CtAssignment;
 import spoon.reflect.code.CtBlock;
@@ -27,10 +33,6 @@ import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtExecutableReference;
 import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.reference.CtVariableReference;
-import aeminium.jparcompiler.processing.utils.CopyCatFactory;
-import aeminium.jparcompiler.processing.utils.Safety;
-import aeminium.runtime.futures.RuntimeManager;
-import aeminium.runtime.futures.codegen.NoVisit;
 
 public class SeqMethodProcessor extends AbstractProcessor<CtMethod<?>> {
 	
@@ -88,6 +90,8 @@ public class SeqMethodProcessor extends AbstractProcessor<CtMethod<?>> {
 		cons.addModifier(ModifierKind.PUBLIC);
 		CtBlock block = factory.Core().createBlock();
 		
+		
+		int parameterOverhead = 0;
 		List<CtExpression<?>> args = new ArrayList<CtExpression<?>>();
 		for (CtParameter p : m.getParameters()) {
 			CtField<?> f = factory.Core().createField();
@@ -108,7 +112,12 @@ public class SeqMethodProcessor extends AbstractProcessor<CtMethod<?>> {
 			CtFieldAccess arg = factory.Core().createFieldRead();
 			arg.setVariable(f.getReference());
 			args.add(arg);
+			
+			parameterOverhead += SizeHelper.getSizeOf(p.getType());
 		}
+		
+		CostEstimation est = CostEstimatorProcessor.database.get(m);
+		CtExpression memoryModel = visitMemoryModel(m, est, parameterOverhead+300);
 		
 		// Execute
 		List<CtParameter<?>> exePars = new ArrayList<CtParameter<?>>();
@@ -119,7 +128,7 @@ public class SeqMethodProcessor extends AbstractProcessor<CtMethod<?>> {
 		CtParameter<?> aeRuntime = factory.Executable().createParameter(exe, factory.Type().createReference("aeminium.runtime.Runtime"), "aeRuntime");
 		CtParameter<?> aeTask = factory.Executable().createParameter(exe, factory.Type().createReference("aeminium.runtime.Task"), "aeTask");
 		
-		
+		System.out.println("Memory stack size for " + m.getSignature() + ": " + memoryModel);
 		
 		List<CtExpression<?>> targs = new ArrayList<CtExpression<?>>();
 		CtVariableAccess taskRead = factory.Core().createVariableRead();
@@ -179,4 +188,9 @@ public class SeqMethodProcessor extends AbstractProcessor<CtMethod<?>> {
 		factory.Annotation().annotate(cl, (CtTypeReference) an);
 		TaskCreationProcessor.recAux.put(m, cl);
 	}
+
+	private CtExpression<?> visitMemoryModel(CtMethod<?> e, CostEstimation est, int overhead) {
+		return est.getMemory(e.getFactory(), overhead);
+	}
+
 }

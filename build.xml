@@ -5,7 +5,7 @@
 	<property name="build.dir" value="bin" />
 	<property name="lib.dir" value="lib" />
 	<property name="dist.dir" value="dist" />
-	<property name="main-class" value="pi.Pi" />
+	<property name="main-class" value="fib.Fib" />
 	<property name="seq.build.dir" value="seq-bin" />
 
 
@@ -102,6 +102,7 @@
 		<java fork="true" classname="${main-class}">
   	 	 	<jvmarg value="-Xms512m" />
   	 	    <jvmarg value="-Xmx1536m" />
+			<arg value="47" />
 			<classpath>
 				<path location="${build.dir}" />
 				<path refid="classpath" />
