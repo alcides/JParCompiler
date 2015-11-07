@@ -214,7 +214,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		int countWrites = fa.vars.count(PermissionType.WRITE);
 		if (countWrites <= 1) {
 			if (granularityControl.hasGranularityControlExpression(element)) {
-				CtIf ifc = createGranularityIf(element, granularityControl.getGranularityControlElement(element));
+				CtIf ifc = createGranularityIf(element, granularityControl.getGranularityControlElement(element, null));
 				CtBlock<?> bt = element.getFactory().Core().createBlock();
 				bt.addStatement((CtStatement) CopyCatFactory.clone(element));
 				ifc.setThenStatement(bt);
@@ -543,10 +543,12 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			// If granularity
 			CtExpression save = newFuture;
 			if (granularityControl.hasGranularityControlExpression(element)) {
-				CtConditional conditional = createGranularityConditional(element, granularityControl.getGranularityControlElement(element));
+				CtConditional conditional = createGranularityConditional(element, granularityControl.getGranularityControlElement(element, element));
 				conditional.setThenExpression(factory.Code().createLiteral(null));
 				conditional.setElseExpression(newFuture);
 				setPermissionSet(conditional, getPermissionSet(element));
+				save.updateAllParentsBelow();
+				conditional.updateAllParentsBelow();
 				save = conditional;
 				setPermissionSet(conditional, set.copy());
 				setPermissionSet(conditional, new PermissionSet());
@@ -573,6 +575,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		}
 		if (!isStatement(element))
 			read.addTypeCast(originalType);
+		read.updateAllParentsBelow();
 
 		CtElement newElement;
 		if (isStatement(element)) {
@@ -596,12 +599,14 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			conditional.setElseExpression(read);
 			element.replace((CtExpression<E>) conditional);
 			newElement = conditional;
+			setPermissionSet(conditional, new PermissionSet());
+			newElement.updateAllParentsBelow();
 		}
 		setPermissionSet(newElement, set.copy());
 		setPermissionSet(read, set.copy());
 		setPermissionSet(newElement.getParent(), parentSet);
 		setCost(newElement, new CostEstimation());
-		read.getParent(CtBlock.class).updateAllParentsBelow();
+		//read.getParent(CtBlock.class).updateAllParentsBelow();
 
 		if (futureLambda != null) {
 			// Filling in Lambda after using element in replace.
@@ -711,7 +716,6 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			}
 			block.updateAllParentsBelow();
 		} else {
-			permFixer.scan(previousStatement.getParent(CtBlock.class).getParent());
 			previousStatement.updateAllParentsBelow();
 			futureAssign.updateAllParentsBelow();
 			insertAfter(previousStatement, futureAssign);
@@ -719,14 +723,17 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 				insertAfter(previousStatement, lv);
 			}
 			block = futureAssign.getParent(CtBlock.class);
+			permFixer.scan(previousStatement.getParent(CtBlock.class).getParent());
 			permFixer.scan(previousStatement.getParent());
 		}
 		setCost(futureAssign, new CostEstimation());
 		tasks.put(read, futureAssign.getReference());
 
 		// Fix broken blocks
+		block.getParent().updateAllParentsBelow();
+		read.getParent().updateAllParentsBelow();
 		permFixer.scan(block.getParent());
-		permFixer.scan(read.getParent(CtBlock.class).getParent());
+		//permFixer.scan(read.getParent());
 	}
 
 	@SuppressWarnings("rawtypes")

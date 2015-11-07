@@ -356,7 +356,8 @@ public class CostModelVisitor extends CtAbstractVisitor {
 	@Override
 	public <T> void visitCtMethod(CtMethod<T> m) {
 		scan(m.getBody());
-		saveCopyInto(m.getBody(), m);
+		CostEstimation ce = ModelUtils.wrapScope(copy(get(m.getBody())), m);
+		save(m, ce);
 	}
 	
 	public <T> void visitCtNewArray(CtNewArray<T> newArray) {

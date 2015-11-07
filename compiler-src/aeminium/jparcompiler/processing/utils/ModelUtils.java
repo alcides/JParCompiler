@@ -3,6 +3,7 @@ package aeminium.jparcompiler.processing.utils;
 import aeminium.jparcompiler.model.CostEstimation;
 import spoon.reflect.code.CtBinaryOperator;
 import spoon.reflect.code.CtExpression;
+import spoon.reflect.code.CtFieldAccess;
 import spoon.reflect.code.CtInvocation;
 import spoon.reflect.code.CtLocalVariable;
 import spoon.reflect.code.CtThisAccess;
@@ -61,6 +62,8 @@ public class ModelUtils {
 		}
 
 		for (CtExpression<?> index : old.complexDependencies.keySet()) {
+			if (index == null || old.complexDependencies.get(index) == null) continue; // BUG: FIXME
+			
 			// Recursive call
 			CostEstimation innerCe = replaceParameters(invocation, old.complexDependencies.get(index), original);
 			CtExpression<?> e = (CtExpression<?>) CopyCatFactory.clone(index);
@@ -126,28 +129,25 @@ public class ModelUtils {
 
 	private static CtExpression replaceLocalVars(CtExpression<?> index, CtElement context) {
 		if (index instanceof CtBinaryOperator) {
-			CtBinaryOperator bin = (CtBinaryOperator) index;
+			CtBinaryOperator bin = (CtBinaryOperator) CopyCatFactory.clone(index);
 			bin.setRightHandOperand(replaceLocalVars(bin.getRightHandOperand(), context));
 			bin.setLeftHandOperand(replaceLocalVars(bin.getLeftHandOperand(), context));
 			return bin;
 		}
 		CtExpression<?> nIndex = (CtExpression<?>) CopyCatFactory.clone(index);
-		nIndex.getElements(new Filter<CtVariableRead>() {
+		boolean replaceByLit = nIndex.getElements(new Filter<CtVariableRead>() {
 			@Override
-			public boolean matches(final CtVariableRead element) {
-				
-				return context.getElements(new Filter<CtLocalVariable>() {
-					@Override
-					public boolean matches(CtLocalVariable lv) {
-						if (element.getVariable().getDeclaration() == lv) {
-							return true;
-						}
-						return false;
-					}
-				}).size() > 0;
+			public boolean matches(CtVariableRead element) {
+				if (element.getVariable().getDeclaration() instanceof CtLocalVariable) {
+					return true;
+				}
+				return false;
 			}
-		});
-		return index.getFactory().Code().createLiteral(100);
+		}).size() > 0;
+		if (replaceByLit) 
+			return index.getFactory().Code().createLiteral(100);
+		else 
+			return nIndex;
 	}
 
 	public static CostEstimation replaceThisReferences(CostEstimation old, CtExpression<?> target) {
@@ -166,14 +166,33 @@ public class ModelUtils {
 	}
 
 	private static CtExpression replaceThis(CtExpression<?> index, CtExpression<?> target) {
-		index.getElements(new Filter<CtThisAccess>() {
+		CtExpression<?> nIndex = (CtExpression<?>) CopyCatFactory.clone(index);
+		nIndex.getElements(new Filter<CtThisAccess>() {
 			@Override
 			public boolean matches(CtThisAccess element) {
 				element.replace(target);
 				return false;
 			}
 		});
-		return index;
+		nIndex.getElements(new Filter<CtFieldAccess<?>>() {
+			@Override
+			public boolean matches(CtFieldAccess<?> element) {
+				if (element.getTarget() == null)
+					element.setTarget(target);
+				return false;
+			}
+		});
+		nIndex.getElements(new Filter<CtInvocation<?>>() {
+			@Override
+			public boolean matches(CtInvocation<?> element) {
+				if (element.getTarget() == null && !element.getExecutable().isStatic()) {
+					element.setTarget(target);
+				}
+				return false;
+			}
+		});
+		nIndex.updateAllParentsBelow();
+		return nIndex;
 	}
 
 }

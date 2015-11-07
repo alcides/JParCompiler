@@ -15,7 +15,7 @@ public class NoGranularityControl implements GranularityControl {
 		return false;
 	}
 	
-	public CtExpression<?> getGranularityControlElement(CtElement e) {
+	public CtExpression<?> getGranularityControlElement(CtElement e, CtExpression<?> context) {
 		return e.getFactory().Code().createCodeSnippetExpression("false").compile();
 	}
 	

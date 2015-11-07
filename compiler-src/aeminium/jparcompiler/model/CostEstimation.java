@@ -56,6 +56,11 @@ public class CostEstimation {
 	
 	@SuppressWarnings("rawtypes")
 	public void addComplex(CtExpression e, CostEstimation inside) {
+		if (e == null)
+			throw new RuntimeException("Complex expression cannot be null");
+		if (inside == null)
+			throw new RuntimeException("CostEstimation complex value cannot be null");
+		e.updateAllParentsBelow();
 		complexDependencies.put(e, inside);
 	}
 	
@@ -75,6 +80,7 @@ public class CostEstimation {
 		}
 		CtExpression ret = null;
 		for (CtExpression k : complexDependencies.keySet()) {
+			if (complexDependencies.get(k) == null) continue; // FIXME: BUG
 			CtExpression val = complexDependencies.get(k).getExpressionNode();
 			try {
 				long multiplier = Long.parseLong(k.toString());
@@ -91,6 +97,7 @@ public class CostEstimation {
 		CtExpression other = FactoryReference.getFactory().Code().createLiteral(simpleCost);
 		if (ret == null) ret = other;
 		else ret = this.merge(ret, other, BinaryOperatorKind.PLUS);
+		ret.updateAllParentsBelow();
 		return ret;
 	}
 	

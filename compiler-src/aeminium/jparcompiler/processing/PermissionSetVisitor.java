@@ -118,7 +118,7 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 			try {
 				if (e.getParent(CtClass.class).getAnnotation(NoVisit.class) != null ) return;
 			} catch(Exception ex) {
-				System.out.println("parent null in " + e);
+				System.out.println("parent null in " + e + ", parent: " + e.getParent().getParent().getParent());
 			}
 			e.accept(this);
 			if (getPermissionSet(e) == null) {
@@ -639,7 +639,7 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 
 	public <T> void visitCtVariableRead(CtVariableRead<T> variableRead) {
 		CtElement target = variableRead.getVariable().getDeclaration();
-		if (target == null) System.out.println(variableRead + "<---");
+		if (target == null) System.out.println(variableRead.getVariable().getClass() + "<---");
 		Permission p = new Permission(PermissionType.READ, target);
 		PermissionSet set = new PermissionSet();
 		set.add(p);

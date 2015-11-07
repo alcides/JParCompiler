@@ -2,10 +2,12 @@ package aeminium.jparcompiler.processing.granularity;
 
 import aeminium.jparcompiler.model.CostEstimation;
 import aeminium.jparcompiler.processing.CostEstimatorProcessor;
+import aeminium.jparcompiler.processing.utils.ModelUtils;
 import spoon.reflect.code.BinaryOperatorKind;
 import spoon.reflect.code.CtBinaryOperator;
 import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtFor;
+import spoon.reflect.code.CtInvocation;
 import spoon.reflect.code.CtLiteral;
 import spoon.reflect.declaration.CtElement;
 
@@ -34,14 +36,23 @@ public class CostModelGranularityControl implements GranularityControl {
 
 	@SuppressWarnings("rawtypes")
 	@Override
-	public CtExpression<?> getGranularityControlElement(CtElement e) {
+	public CtExpression<?> getGranularityControlElement(CtElement e, CtExpression<?> context) {
 		CostEstimation ce = CostEstimatorProcessor.database.get(e);
 		CtBinaryOperator<Boolean> inf = e.getFactory().Core().createBinaryOperator();
+		CtExpression exp;
+		if (context instanceof CtInvocation) {
+			exp = (CtExpression) ModelUtils.replaceThisReferences(ce, (CtExpression<?>) context).getExpressionNode();
+		} else {
+			if (context != null)
+				System.out.println("REF" + context.getClass());
+			exp = ce.getExpressionNode();
+		}
 		inf.setKind(BinaryOperatorKind.LT);
-		inf.setLeftHandOperand(ce.getExpressionNode());
+		inf.setLeftHandOperand(exp);
 		long threshold = CostEstimatorProcessor.basicCosts.get("parallel");
 		CtLiteral lit = e.getFactory().Code().createLiteral(threshold);
 		inf.setRightHandOperand(lit);
+		inf.updateAllParentsBelow();
 		return inf;
 	}
 	

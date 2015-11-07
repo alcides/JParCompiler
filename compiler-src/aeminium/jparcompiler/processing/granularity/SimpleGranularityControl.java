@@ -16,7 +16,7 @@ public class SimpleGranularityControl implements GranularityControl {
 	}
 
 	
-	public CtExpression<?> getGranularityControlElement(CtElement e) {
+	public CtExpression<?> getGranularityControlElement(CtElement e, CtExpression<?> context) {
 		return e.getFactory().Code().createCodeSnippetExpression("aeminium.runtime.futures.RuntimeManager.shouldSeq()").compile();
 	}
 

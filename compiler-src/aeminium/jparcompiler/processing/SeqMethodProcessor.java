@@ -1,6 +1,7 @@
 package aeminium.jparcompiler.processing;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -8,11 +9,12 @@ import java.util.TreeSet;
 import aeminium.jparcompiler.model.CostEstimation;
 import aeminium.jparcompiler.processing.utils.CopyCatFactory;
 import aeminium.jparcompiler.processing.utils.Safety;
-import aeminium.jparcompiler.processing.utils.SizeHelper;
 import aeminium.runtime.futures.RuntimeManager;
 import aeminium.runtime.futures.codegen.NoVisit;
 import spoon.processing.AbstractProcessor;
+import spoon.reflect.code.BinaryOperatorKind;
 import spoon.reflect.code.CtAssignment;
+import spoon.reflect.code.CtBinaryOperator;
 import spoon.reflect.code.CtBlock;
 import spoon.reflect.code.CtConditional;
 import spoon.reflect.code.CtExpression;
@@ -25,6 +27,7 @@ import spoon.reflect.code.CtVariableAccess;
 import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtConstructor;
+import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtField;
 import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.declaration.CtParameter;
@@ -33,6 +36,7 @@ import spoon.reflect.factory.Factory;
 import spoon.reflect.reference.CtExecutableReference;
 import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.reference.CtVariableReference;
+import spoon.reflect.visitor.Filter;
 
 public class SeqMethodProcessor extends AbstractProcessor<CtMethod<?>> {
 	
@@ -90,14 +94,14 @@ public class SeqMethodProcessor extends AbstractProcessor<CtMethod<?>> {
 		cons.addModifier(ModifierKind.PUBLIC);
 		CtBlock block = factory.Core().createBlock();
 		
-		
-		int parameterOverhead = 0;
 		List<CtExpression<?>> args = new ArrayList<CtExpression<?>>();
+		HashMap<CtParameter, CtField> mapping = new HashMap<>();
 		for (CtParameter p : m.getParameters()) {
 			CtField<?> f = factory.Core().createField();
 			f.setSimpleName(p.getSimpleName() + "_ae");
 			f.setType(p.getType());
 			cl.addField(f);
+			mapping.put(p, f);
 			
 			CtAssignment ass = factory.Core().createAssignment();
 			CtFieldAccess fass = factory.Core().createFieldWrite();
@@ -108,16 +112,13 @@ public class SeqMethodProcessor extends AbstractProcessor<CtMethod<?>> {
 			ass.setAssignment(pass);
 			block.addStatement(ass);
 			
-			
 			CtFieldAccess arg = factory.Core().createFieldRead();
 			arg.setVariable(f.getReference());
 			args.add(arg);
-			
-			parameterOverhead += SizeHelper.getSizeOf(p.getType());
 		}
 		
 		CostEstimation est = CostEstimatorProcessor.database.get(m);
-		CtExpression memoryModel = visitMemoryModel(m, est, parameterOverhead+300);
+		CtExpression memoryModel = visitMemoryModel(m, est, 5000);
 		
 		// Execute
 		List<CtParameter<?>> exePars = new ArrayList<CtParameter<?>>();
@@ -128,8 +129,6 @@ public class SeqMethodProcessor extends AbstractProcessor<CtMethod<?>> {
 		CtParameter<?> aeRuntime = factory.Executable().createParameter(exe, factory.Type().createReference("aeminium.runtime.Runtime"), "aeRuntime");
 		CtParameter<?> aeTask = factory.Executable().createParameter(exe, factory.Type().createReference("aeminium.runtime.Task"), "aeTask");
 		
-		System.out.println("Memory stack size for " + m.getSignature() + ": " + memoryModel);
-		
 		List<CtExpression<?>> targs = new ArrayList<CtExpression<?>>();
 		CtVariableAccess taskRead = factory.Core().createVariableRead();
 		taskRead.setVariable(aeTask.getReference());
@@ -138,12 +137,48 @@ public class SeqMethodProcessor extends AbstractProcessor<CtMethod<?>> {
 		rtRead.setVariable(aeRuntime.getReference());
 		CtTypeReference rtReference = factory.Type().createReference("aeminium.runtime.Runtime");
 		CtExecutableReference parallelizeRef = rtReference.getDeclaredExecutables().stream().filter(e -> e.getSimpleName().equals("parallelize")).iterator().next();
-		CtInvocation parallelize = factory.Code().createInvocation(rtRead, parallelizeRef, targs);
+		CtExpression parallelize = factory.Code().createInvocation(rtRead, parallelizeRef, targs);
 		
 		CtInvocation parVersion = factory.Code().createInvocation(null, m.getReference(), args);
 		
 		CtMethod seqMethod = (CtMethod) container.getMethodsByName("aeminium_seq_" + m.getSimpleName()).get(0);
 		CtInvocation seqVersion = factory.Code().createInvocation(null, seqMethod.getReference(), args);
+		
+		if (System.getenv("MEMORYMODEL") != null) {
+			// Replace parameters by fields;
+			
+			memoryModel = (CtExpression) CopyCatFactory.clone(memoryModel);
+			memoryModel.getElements(new Filter<CtVariableRead>() {
+
+				@Override
+				public boolean matches(CtVariableRead element) {
+					CtElement parent = element.getParent();
+					CtElement possiblePar = element.getVariable().getDeclaration();
+					if (possiblePar instanceof CtParameter) {
+						if (mapping.containsKey(possiblePar)) {
+							CtFieldRead fr = factory.Core().createFieldRead();
+							fr.setVariable(mapping.get(possiblePar).getReference());
+							element.replace(fr);
+							parent.updateAllParentsBelow();
+						}
+					}
+					return false;
+				}
+				
+			});
+			
+			CtBinaryOperator<Boolean> cmp = factory.Core().createBinaryOperator();
+			cmp.setKind(BinaryOperatorKind.LT);
+			cmp.setLeftHandOperand(memoryModel); // TODO: reduce memoryModel
+			cmp.setRightHandOperand(factory.Code().createLiteral(100000)); // TODO: Runtime value
+			
+			CtBinaryOperator<Boolean> and = factory.Core().createBinaryOperator();
+			and.setKind(BinaryOperatorKind.AND);
+			and.setRightHandOperand(parallelize);
+			and.setLeftHandOperand(cmp);
+			parallelize = and;
+			parallelize.updateAllParentsBelow();
+		}
 		
 		CtBlock exeBlock = factory.Core().createBlock();
 		exe.setBody(exeBlock);
