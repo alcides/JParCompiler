@@ -111,6 +111,19 @@
 		</java>
 	</target>
 	
+	<target name="benchmark" depends="compile-compiler">
+		<java fork="true" classname="aeminium.jparcompiler.benchmark.BenchmarkRecorder">
+  	 	 	<jvmarg value="-Xms512m" />
+  	 	    <jvmarg value="-Xmx1536m" />
+			<!--<arg value="47" />-->
+			<classpath>
+				<path location="${compiler.build.dir}" />
+				<path refid="classpath" />
+			</classpath>
+			<!-- <jvmarg value="-Xrunhprof:cpu=samples,file=log.txt,depth=3"/> -->
+		</java>
+	</target>
+	
 	<target name="jar" depends="clean, compile">
 		<mkdir dir="${dist.dir}" />
 		<copy file="${lib.dir}/AeminiumRuntime.jar" todir="${dist.dir}" />
