@@ -170,7 +170,7 @@ public class SeqMethodProcessor extends AbstractProcessor<CtMethod<?>> {
 			CtBinaryOperator<Boolean> cmp = factory.Core().createBinaryOperator();
 			cmp.setKind(BinaryOperatorKind.LT);
 			cmp.setLeftHandOperand(memoryModel); // TODO: reduce memoryModel
-			cmp.setRightHandOperand(factory.Code().createLiteral(100000)); // TODO: Runtime value
+			cmp.setRightHandOperand(factory.Code().createCodeSnippetExpression("java.lang.Runtime.getRuntime().freeMemory()").compile());
 			
 			CtBinaryOperator<Boolean> and = factory.Core().createBinaryOperator();
 			and.setKind(BinaryOperatorKind.AND);

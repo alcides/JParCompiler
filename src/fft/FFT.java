@@ -36,7 +36,7 @@ public class FFT {
 			size = Integer.parseInt(args[0]);
 		}
 
-		Complex[] input = FFT.createRandomComplexArray(size, new Random());
+		Complex[] input = FFT.createRandomComplexArray(size, new Random(1L));
 		long t = System.nanoTime();
 		Complex[] result = sequentialFFT(input);
 		System.out.println("% " + ((double) (System.nanoTime() - t) / (1000 * 1000 * 1000)));
