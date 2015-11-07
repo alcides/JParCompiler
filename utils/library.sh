@@ -24,7 +24,7 @@ function runseq() {
 
 function test() {
 	mkdir -p results
-	for i in {1..3}
+	for i in {1..7}
 	do
 		echo "Running $1 - $CONFIGNAME"
 		${*:2} >> results/$1_$CONFIGNAME.log

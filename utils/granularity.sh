@@ -15,6 +15,5 @@ ant jar
 CONFIGNAME=par_aggregated tests
 
 
-PARALLELIZE=all
-ant jar
+PARALLELIZE=all ant jar
 CONFIGNAME=par_all tests
