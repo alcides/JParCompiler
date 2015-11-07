@@ -253,7 +253,8 @@ public class CostModelVisitor extends CtAbstractVisitor {
 			}
 		}
 		
-		ce.addComplex(k, cbe);
+		ce.addComplex(ModelUtils.model(k), cbe);
+		ce = ModelUtils.wrapScope(ce, forLoop);
 		save(forLoop, ce);
 	}
 	
@@ -327,6 +328,7 @@ public class CostModelVisitor extends CtAbstractVisitor {
 		}
 		if (invocation.getTarget() != null) {			
 			scan(invocation.getTarget());
+			ce = ModelUtils.replaceThisReferences(ce, invocation.getTarget());
 			//ce.add(get(invocation.getTarget()));
 		}
 		for (CtExpression<?> arg : invocation.getArguments()) {
