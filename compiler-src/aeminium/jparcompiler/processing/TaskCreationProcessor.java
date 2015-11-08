@@ -393,7 +393,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		CtInvocation hollowSetting = factory.Core().createInvocation();
 		CtTypeReference futureType = factory.Type().createReference("aeminium.runtime.futures.codegen.ForHelper");
 		CtExecutableReference<?> methodReferenceExpression = futureType.getDeclaredExecutables().stream()
-				.filter((e) -> e.getSimpleName().equals("forContinuous" + boxedIterType.getSimpleName())).iterator()
+				.filter((e) -> e.getSimpleName().equals("forContinuous" + boxedIterType.getSimpleName()) && e.getParameters().size() == 5 ).iterator()
 				.next();
 
 		CtTypeAccess staticReference = factory.Core().createTypeAccess();
@@ -444,7 +444,9 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		setPermissionSet(hintTypeAccess, new PermissionSet());
 		setPermissionSet(hint, new PermissionSet());
 		args.add(hint);
-
+		args.add(granularityControl.getGranularityControlUnits(element));
+		
+		
 		// Shadow Variables
 		ArrayList<CtLocalVariable<?>> lst = new ArrayList<CtLocalVariable<?>>();
 		lst.add(((CtLocalVariable<?>) element.getForInit().get(0)));
