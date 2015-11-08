@@ -5,9 +5,8 @@ import aeminium.runtime.futures.codegen.Sequential;
 public class Integrate {
 	
 	static double errorTolerance = 1.0e-11; //13;
-	static int threshold = 100;
 	static double start = -2101.0;
-	static double end = 1036.0;
+	static double end = 1700.0;
 
 	// the function to integrate
 	static double computeFunction(double x) {
@@ -32,21 +31,22 @@ public class Integrate {
 		System.out.println("% " + ((double) (System.nanoTime() - t) / (1000 * 1000 * 1000)));
 		System.out.println("Integral: " + a);
 	}
-	
-	static final double part(double fl, double fr, double h) {
-		return fl+fr * h * 0.5;
-	}
 
 	static final double recEval(double l, double r, double fl, double fr, double a) {
 		double h = (r - l) * 0.5;
 		double c = l + h;
 		double fc = computeFunction(c);
-		double al = part(fl, fc, h);
-		double ar = part(fr, fc, h);
+		double al = area(fl, fc, h);
+		double ar = area(fr, fc, h);
 		double alr = al + ar;
 		if (Math.abs(alr - a) <= Integrate.errorTolerance) {
 			return alr;
 		}
 		return recEval(c, r, fc, fr, ar) + recEval(l, c, fl, fc, al);
+	}
+
+	private static double area(double fl, double fc, double h) {
+		double hh = h * 0.5;
+		return (fl + fc) * hh;
 	}
 }
