@@ -32,14 +32,17 @@ public class Integrate {
 		System.out.println("% " + ((double) (System.nanoTime() - t) / (1000 * 1000 * 1000)));
 		System.out.println("Integral: " + a);
 	}
+	
+	static final double part(double fl, double fr, double h) {
+		return fl+fr * h * 0.5;
+	}
 
 	static final double recEval(double l, double r, double fl, double fr, double a) {
 		double h = (r - l) * 0.5;
 		double c = l + h;
 		double fc = computeFunction(c);
-		double hh = h * 0.5;
-		double al = (fl + fc) * hh;
-		double ar = (fr + fc) * hh;
+		double al = part(fl, fc, h);
+		double ar = part(fr, fc, h);
 		double alr = al + ar;
 		if (Math.abs(alr - a) <= Integrate.errorTolerance) {
 			return alr;
