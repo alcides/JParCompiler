@@ -13,13 +13,13 @@ function compile_seq() {
 
 
 function run() {
-	timeout 5m java -Xmx20G -Xss10m -cp dist/AeminiumRuntime.jar:dist/AeminiumFutures.jar:dist/JparCompilerExamples.jar $@
+	timeout 15m java -Xmx20G -Xss10m -cp dist/AeminiumRuntime.jar:dist/AeminiumFutures.jar:dist/JparCompilerExamples.jar $@
 	sleep 3
 }
 
 
 function runseq() {
-	timeout 5m java -Xmx20G -cp dist/AeminiumRuntime.jar:dist/AeminiumFutures.jar:dist/SequentialExamples.jar $@
+	timeout 15m java -Xmx20G -cp dist/AeminiumRuntime.jar:dist/AeminiumFutures.jar:dist/SequentialExamples.jar $@
 }
 
 function test() {
