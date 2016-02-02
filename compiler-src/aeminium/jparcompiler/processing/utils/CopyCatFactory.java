@@ -62,7 +62,7 @@ public class CopyCatFactory extends CtAbstractVisitor {
 		
 		if (el instanceof CtAnonymousExecutable) {
 			CtAnonymousExecutable cat = (CtAnonymousExecutable) ccat;
-			cat.setBody((CtBlock<?>) clone(cat.getBody()));
+			cat.setBody( (CtBlock<Void>) clone(cat.getBody()) );
 		}
 		if (el instanceof CtArrayAccess) {
 			CtArrayAccess cat = (CtArrayAccess) ccat;

@@ -107,6 +107,12 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 	}
 	
 	
+	public void scan(List<? extends CtElement> es) {
+		for (CtElement e : es) {
+			scan(e);
+		}
+	}
+	
 	public void scan(CtElement e) {
 		
 		if (out == null) {
