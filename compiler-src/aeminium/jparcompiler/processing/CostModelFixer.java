@@ -1,21 +1,18 @@
 package aeminium.jparcompiler.processing;
 
-import java.util.HashMap;
-
 import aeminium.jparcompiler.model.CostEstimation;
 import spoon.reflect.declaration.CtElement;
 
 public class CostModelFixer extends CostModelVisitor {
 	
-	CostModelFixer(HashMap<CtElement, CostEstimation> db) {
+	public CostModelFixer() {
 		super();
-		this.database = db;
 	}
 	
 	public CostEstimation save(CtElement e, CostEstimation ce) {
 		if (e != null) {
-			if (!database.containsKey(e)) {
-				return database.put(e, ce);
+			if (e.getMetadata(CostEstimation.COST_MODEL_KEY) == null) {
+				e.putMetadata(CostEstimation.COST_MODEL_KEY, ce);
 			}
 		}
 		return ce;

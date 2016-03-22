@@ -2,9 +2,12 @@ package aeminium.jparcompiler.model;
 
 import java.util.ArrayList;
 
+import spoon.reflect.code.CtTargetedExpression;
 import spoon.reflect.declaration.CtElement;
 
 public class PermissionSet extends ArrayList<Permission> {
+	
+	public static final String PERMISSION_MODEL_KEY = "permission";
 
 	public boolean isComplete = false;
 	private static final long serialVersionUID = 1L;
@@ -58,11 +61,15 @@ public class PermissionSet extends ArrayList<Permission> {
 		}
 	}
 	
+	@SuppressWarnings("rawtypes")
 	public void clean() {
 		PermissionSet rm = new PermissionSet();
 		for (Permission p: this) {
-			if (p.target.getSignature().startsWith("java.lang.Math")) {
-				rm.add(p);
+			if ( p instanceof CtTargetedExpression) {
+				CtTargetedExpression pp = (CtTargetedExpression) p;
+				if (pp.getTarget().getType().getQualifiedName().startsWith("java.lang.Math")) {
+					rm.add(p);
+				}
 			}
 		}
 		for (Permission p : rm) {

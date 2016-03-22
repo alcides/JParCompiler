@@ -6,13 +6,10 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.util.HashMap;
 
-import aeminium.jparcompiler.model.CostEstimation;
 import spoon.processing.AbstractProcessor;
-import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtMethod;
 
 public class CostEstimatorProcessor<T> extends AbstractProcessor<CtMethod<T>>  {
-	public static HashMap<CtElement, CostEstimation> database;
 	public static HashMap<String, Long> basicCosts = new HashMap<>();
 	public static CostModelVisitor visitor = new CostModelVisitor();
 	
@@ -38,6 +35,5 @@ public class CostEstimatorProcessor<T> extends AbstractProcessor<CtMethod<T>>  {
 	@Override
 	public void processingDone() {
 		super.processingDone();
-		database = visitor.database;
 	}
 }

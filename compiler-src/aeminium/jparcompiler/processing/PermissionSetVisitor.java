@@ -1,10 +1,13 @@
 package aeminium.jparcompiler.processing;
 
 import java.lang.annotation.Annotation;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Stack;
 
+import aeminium.jparcompiler.model.Permission;
+import aeminium.jparcompiler.model.PermissionSet;
+import aeminium.jparcompiler.model.PermissionType;
+import aeminium.runtime.futures.codegen.NoVisit;
 import spoon.reflect.code.CtAnnotationFieldAccess;
 import spoon.reflect.code.CtArrayRead;
 import spoon.reflect.code.CtArrayWrite;
@@ -50,7 +53,6 @@ import spoon.reflect.code.CtUnaryOperator;
 import spoon.reflect.code.CtVariableRead;
 import spoon.reflect.code.CtVariableWrite;
 import spoon.reflect.code.CtWhile;
-import spoon.reflect.cu.SourcePosition;
 import spoon.reflect.declaration.CtAnnotation;
 import spoon.reflect.declaration.CtAnnotationType;
 import spoon.reflect.declaration.CtAnonymousExecutable;
@@ -70,15 +72,9 @@ import spoon.reflect.reference.CtReference;
 import spoon.reflect.reference.CtUnboundVariableReference;
 import spoon.reflect.visitor.CtAbstractVisitor;
 import spoon.reflect.visitor.Filter;
-import aeminium.jparcompiler.model.Permission;
-import aeminium.jparcompiler.model.PermissionSet;
-import aeminium.jparcompiler.model.PermissionType;
-import aeminium.runtime.futures.codegen.NoVisit;
 
 public class PermissionSetVisitor extends CtAbstractVisitor {
-
-	HashMap<CtElement, PermissionSet> database = new HashMap<CtElement, PermissionSet>();
-	HashMap<SourcePosition, PermissionSet> databasePos = new HashMap<SourcePosition, PermissionSet>(); // backup
+	
 	Stack<CtElement> stackCheck = new Stack<CtElement>();
 
 	static CtElement out;
@@ -91,12 +87,12 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 		if (e == null) {
 			throw new RuntimeException("Null pointer: " + e);
 		}
-		return database.get(e);
+		return (PermissionSet) e.getMetadata(PermissionSet.PERMISSION_MODEL_KEY);
 	}
 	
 	public void setPermissionSet(CtElement e, PermissionSet s) {
-		database.put(e, s);
-		databasePos.put(e.getPosition(), s);
+		e.putMetadata(PermissionSet.PERMISSION_MODEL_KEY, s);
+		s.clean();
 	}
 	
 	public PermissionSet merge(CtElement e1, CtElement e2) {
@@ -645,7 +641,7 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 
 	public <T> void visitCtVariableRead(CtVariableRead<T> variableRead) {
 		CtElement target = variableRead.getVariable().getDeclaration();
-		if (target == null) System.out.println(variableRead.getVariable().getClass() + "<---");
+		if (target == null) System.out.println(variableRead.getVariable().getClass() + "<--- is null");
 		Permission p = new Permission(PermissionType.READ, target);
 		PermissionSet set = new PermissionSet();
 		set.add(p);

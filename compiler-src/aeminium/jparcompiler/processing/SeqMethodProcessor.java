@@ -117,7 +117,7 @@ public class SeqMethodProcessor extends AbstractProcessor<CtMethod<?>> {
 			args.add(arg);
 		}
 		
-		CostEstimation est = CostEstimatorProcessor.database.get(m);
+		CostEstimation est = (CostEstimation) m.getMetadata(CostEstimation.COST_MODEL_KEY);
 		CtExpression memoryModel = visitMemoryModel(m, est, 5000);
 		
 		// Execute

@@ -11,6 +11,8 @@ import spoon.reflect.declaration.CtElement;
 import spoon.reflect.factory.Factory;
 
 public class CostEstimation {
+	
+	public static final String COST_MODEL_KEY = "cost";
 
 	public int instructions = 0;
 	public HashMap<String, Integer> dependencies = new HashMap<>();

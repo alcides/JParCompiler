@@ -13,8 +13,12 @@ import spoon.reflect.declaration.CtElement;
 
 public class CostModelGranularityControl implements GranularityControl {
 	
+	public CostEstimation getCost(CtElement e) {
+		return (CostEstimation) e.getMetadata(CostEstimation.COST_MODEL_KEY);
+	}
+	
 	public boolean shouldParallelize(CtElement element) {
-		CostEstimation ce = CostEstimatorProcessor.database.get(element);
+		CostEstimation ce = getCost(element);
 		if (ce == null) {
 			CostEstimatorProcessor.visitor.scan(element);
 			ce = CostEstimatorProcessor.visitor.get(element);
@@ -30,14 +34,14 @@ public class CostModelGranularityControl implements GranularityControl {
 	}
 	
 	public boolean hasGranularityControlExpression(CtElement e) {
-		CostEstimation ce = CostEstimatorProcessor.database.get(e);
+		CostEstimation ce = getCost(e);
 		return ce != null && ce.isExpressionComplex;
 	}
 
 	@SuppressWarnings("rawtypes")
 	@Override
 	public CtExpression<?> getGranularityControlElement(CtElement e, CtExpression<?> context) {
-		CostEstimation ce = CostEstimatorProcessor.database.get(e);
+		CostEstimation ce = getCost(e);
 		CtBinaryOperator<Boolean> inf = e.getFactory().Core().createBinaryOperator();
 		CtExpression exp;
 		if (context instanceof CtInvocation) {
@@ -60,7 +64,7 @@ public class CostModelGranularityControl implements GranularityControl {
 	@Override
 	public CtExpression<?> getGranularityControlUnits(CtFor e) {
 		shouldParallelize(e);
-		CostEstimation ce = CostEstimatorProcessor.database.get(e);
+		CostEstimation ce = getCost(e);
 		CtBinaryOperator<Boolean> inf = e.getFactory().Core().createBinaryOperator();
 		inf.setKind(BinaryOperatorKind.DIV);
 		inf.setLeftHandOperand(ce.getExpressionNode());

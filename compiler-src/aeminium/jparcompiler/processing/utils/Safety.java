@@ -2,12 +2,13 @@ package aeminium.jparcompiler.processing.utils;
 
 import java.lang.annotation.Annotation;
 
+import aeminium.jparcompiler.processing.SeqMethodProcessor;
+import aeminium.runtime.futures.codegen.Sequential;
+import spoon.reflect.code.CtConstructorCall;
 import spoon.reflect.declaration.CtAnnotation;
 import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtMethod;
-import aeminium.jparcompiler.processing.SeqMethodProcessor;
-import aeminium.runtime.futures.codegen.Sequential;
 
 public class Safety {
 	public static boolean isSafe(CtElement el) {
@@ -36,6 +37,11 @@ public class Safety {
 			if (an.getSignature().equals("@" + Sequential.class.getCanonicalName() )) {
 				return true;
 			}
+		}
+		
+		if (el instanceof CtConstructorCall) {
+			CtConstructorCall<?> e = (CtConstructorCall<?>) el;
+			if (e.getType().getQualifiedName().startsWith("aeminium.runtime.futures")) return true;
 		}
 		
 		return m.getSimpleName().startsWith(SeqMethodProcessor.SEQ_PREFIX);

@@ -13,6 +13,7 @@ import aeminium.jparcompiler.processing.granularity.CostModelGranularityControl;
 import aeminium.jparcompiler.processing.granularity.GranularityControl;
 import aeminium.jparcompiler.processing.granularity.NoGranularityControl;
 import aeminium.jparcompiler.processing.granularity.SimpleGranularityControl;
+import aeminium.jparcompiler.processing.utils.CodeGenHelper;
 import aeminium.jparcompiler.processing.utils.CopyCatFactory;
 import aeminium.jparcompiler.processing.utils.ForAnalyzer;
 import aeminium.jparcompiler.processing.utils.Safety;
@@ -54,18 +55,15 @@ import spoon.reflect.visitor.Filter;
 import spoon.reflect.visitor.Query;
 
 public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
-
-	HashMap<CtElement, PermissionSet> permissionDatabase;
-	HashMap<CtElement, CostEstimation> costDatabase;
+	private static final String PARALLELIZED_KEY = "parallelized";
 	PermissionSetFixer permFixer;
 	CostModelFixer costFixer;
-
+	CodeGenHelper codegen;
 	int counterTasks;
 	HashMap<CtElement, CtVariableReference<?>> tasks = new HashMap<CtElement, CtVariableReference<?>>();
 	public static HashMap<CtMethod<?>, CtClass<?>> recAux = new HashMap<CtMethod<?>, CtClass<?>>();
 
 	private static GranularityControl granularityControl;
-
 	static {
 		if (System.getenv("PARALLELIZE") == null) {
 			granularityControl = new CostModelGranularityControl();
@@ -82,15 +80,15 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	@Override
 	public void init() {
 		super.init();
-		permissionDatabase = AccessPermissionsProcessor.database;
-		costDatabase = CostEstimatorProcessor.database;
-		permFixer = new PermissionSetFixer(permissionDatabase);
-		costFixer = new CostModelFixer(costDatabase);
+		permFixer = new PermissionSetFixer();
+		costFixer = new CostModelFixer();
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public void process(CtElement element) {
+		if (codegen == null) codegen = new CodeGenHelper(element.getFactory());
+			
 		if (element instanceof CtMethod && ((CtMethod) element).getSimpleName().equals("main")) {
 			// Skipping main
 		} else {
@@ -131,12 +129,11 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		if (element instanceof CtConstructorCall) {
 			CtConstructorCall<?> call = (CtConstructorCall<?>) element;
 			CtTypeReference<?> randomT = factory.Type().createReference("java.util.Random");
-			if (call.getType().equals(randomT) && call.getExecutable().getDeclaringType().equals(randomT)) {
+			if (call.getType() != null && call.getType().equals(randomT) && call.getExecutable().getDeclaringType().equals(randomT)) {
 				CtTypeReference randomTS = factory.Type().createReference(ThreadLocalRandom.class);
 				CtExecutableReference ref = randomTS.getDeclaredExecutables().stream()
 						.filter(e -> e.getSimpleName().equals("current")).iterator().next();
-				CtTypeAccess<?> randomTSAccess = factory.Core().createTypeAccess();
-				randomTSAccess.setType(randomTS);
+				CtTypeAccess<?> randomTSAccess = factory.Code().createTypeAccess(randomTS);
 				CtExpression current = factory.Code().createInvocation(randomTSAccess, ref,
 						new ArrayList<CtExpression<?>>());
 				call.replace(current);
@@ -144,11 +141,22 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		}
 
 		if (element instanceof CtInvocation<?>) {
-			getPermissionSet(element);
-			getPermissionSet(element.getParent()); // Double Check
-			if (granularityControl.shouldParallelize(element)) {
-				processInvocation((CtInvocation<?>) element);
+			
+			String qname = null;
+			CtInvocation inv = (CtInvocation) element;
+			if (inv.getExecutable() != null)
+				if (inv.getExecutable().getDeclaringType() != null)
+					qname = inv.getExecutable().getDeclaringType().getQualifiedName();
+			
+			if (  qname == null || !qname.startsWith("aeminium.runtime.futures")) {
+				getPermissionSet(element);
+				getPermissionSet(element.getParent()); // Double Check
+				if (granularityControl.shouldParallelize(element)) {
+					processInvocation((CtInvocation<?>) element);
+				}	
 			}
+			
+			
 		}
 		if (element instanceof CtFor) {
 			permFixer.scan(element.getParent()); // Hack
@@ -202,7 +210,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 
 	private void processFor(CtFor element) {
 		// First, check conditions for parallelization.
-		ForAnalyzer fa = new ForAnalyzer(element, this.permissionDatabase);
+		ForAnalyzer fa = new ForAnalyzer(element);
 		if (!fa.canBeAnalyzed()) {
 			return;
 		}
@@ -255,7 +263,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			for (Permission p : vars) {
 				if (p.type == PermissionType.WRITE && p.target == target) {
 					if (s instanceof CtOperatorAssignment) {
-						CtOperatorAssignment<?, ?> ass = (CtOperatorAssignment<?, ?>) s;
+						CtOperatorAssignment<?, ?> ass = (CtOperatorAssignment<?, ?>) s;	
 						if (ass.getKind() == BinaryOperatorKind.PLUS) {
 							stToChange = ass;
 							if (ass.getType().getSimpleName().equals("int"))
@@ -330,26 +338,10 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		// Hints
 		int c = element.getBody()
 				.getElements((e) -> (e instanceof CtWhile || e instanceof CtFor || e instanceof CtInvocation)).size();
-		CtTypeReference hintType = factory.Type().createReference("aeminium.runtime.Hints");
-		CtTypeAccess hintTypeAccess = factory.Core().createTypeAccess();
-		hintTypeAccess.setType(hintType);
-		CtFieldRead hint = factory.Core().createFieldRead();
-		CtVariableReference hintRef = factory.Core().createFieldReference();
-		hintRef.setType(hintType);
-		if (c == 0) {
-			hintRef.setSimpleName("SMALL");
-		} else {
-			hintRef.setSimpleName("LARGE");
-		}
-		hint.setTarget(hintTypeAccess);
-		hint.setVariable(hintRef);
-		setPermissionSet(hintTypeAccess, new PermissionSet());
-		setPermissionSet(hint, new PermissionSet());
-		setCost(hintTypeAccess, new CostEstimation());
-		setCost(hint, new CostEstimation());
+		CtFieldRead hint = getHintForCount(factory, c);
 		args.add(hint);
+		
 		args.add(granularityControl.getGranularityControlUnits(element));
-
 		forHelper.setArguments(args);
 		element.replace(hollowSetting);
 		setPermissionSet(lambda, new PermissionSet());
@@ -369,6 +361,11 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		setCost(read, new CostEstimation());
 		setCost(update, new CostEstimation());
 		insertAfter(hollowSetting, update);
+		
+		read.putMetadata(PARALLELIZED_KEY, true);
+		update.putMetadata(PARALLELIZED_KEY, true);
+		varDecl.putMetadata(PARALLELIZED_KEY, true);
+		lambda.putMetadata(PARALLELIZED_KEY, true);
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -396,8 +393,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 				.filter((e) -> e.getSimpleName().equals("forContinuous" + boxedIterType.getSimpleName()) && e.getParameters().size() == 5 ).iterator()
 				.next();
 
-		CtTypeAccess staticReference = factory.Core().createTypeAccess();
-		staticReference.setType(futureType);
+		CtTypeAccess staticReference = factory.Code().createTypeAccess(futureType);
 		hollowSetting.setTarget(staticReference);
 
 		hollowSetting.setExecutable(methodReferenceExpression);
@@ -428,22 +424,9 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		// Hints
 		int c = element.getBody()
 				.getElements((e) -> (e instanceof CtWhile || e instanceof CtFor || e instanceof CtInvocation)).size();
-		CtTypeReference hintType = factory.Type().createReference("aeminium.runtime.Hints");
-		CtTypeAccess hintTypeAccess = factory.Core().createTypeAccess();
-		hintTypeAccess.setType(hintType);
-		CtFieldRead hint = factory.Core().createFieldRead();
-		CtVariableReference hintRef = factory.Core().createFieldReference();
-		hintRef.setType(hintType);
-		if (c == 0) {
-			hintRef.setSimpleName("SMALL");
-		} else {
-			hintRef.setSimpleName("LARGE");
-		}
-		hint.setTarget(hintTypeAccess);
-		hint.setVariable(hintRef);
-		setPermissionSet(hintTypeAccess, new PermissionSet());
-		setPermissionSet(hint, new PermissionSet());
+		CtFieldRead hint = getHintForCount(factory, c);
 		args.add(hint);
+		
 		args.add(granularityControl.getGranularityControlUnits(element));
 		
 		
@@ -469,10 +452,33 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		setPermissionSet(hollowSetting, oldVars);
 		permFixer.scan(hollowSetting);
 		costFixer.scan(hollowSetting);
+		
+		finalLambda.putMetadata(PARALLELIZED_KEY, true);
+		hollowSetting.putMetadata(PARALLELIZED_KEY, true);
+	}
+
+	@SuppressWarnings("rawtypes")
+	private CtFieldRead getHintForCount(Factory factory, int c) {
+		String tag = "LARGE";
+		if (c == 0) tag = "SMALL";
+		CtFieldRead hint = (CtFieldRead) factory.Code().createCodeSnippetExpression("aeminium.runtime.Hints." + tag).compile();
+		setPermissionSet(hint, new PermissionSet());
+		setPermissionSet(hint.getVariable(), new PermissionSet());
+		setPermissionSet(hint.getTarget(), new PermissionSet());
+		setCost(hint, new CostEstimation());
+		return hint;
 	}
 
 	private void processInvocation(CtInvocation<?> element) {
+		CtElement el = element;
+		while (el != null) {
+			if (el.getMetadata(PARALLELIZED_KEY) != null) {
+				return;
+			}
+			el = el.getParent();
+		}
 		futurifyInvocation(element);
+		element.putMetadata(PARALLELIZED_KEY, true);
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -480,7 +486,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		Factory factory = element.getFactory();
 		factory.getEnvironment().setComplianceLevel(8);
 		
-		CostModelFixer cFixer = new CostModelFixer(costDatabase);
+		CostModelFixer cFixer = new CostModelFixer();
 		cFixer.scan(element);
 		PermissionSet set = getPermissionSet(element);
 		PermissionSet parentSet = getPermissionSet(element.getParent());
@@ -512,15 +518,14 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			CtTypeReference futureType = recAux.get(meth).getReference();
 			CtTypeReference futureType2 = factory.Type().createReference("aeminium.runtime.futures.FBody");
 			CtTypeReference runtimeManager = factory.Type().createReference(RuntimeManager.class);
-			CtTypeAccess<?> accRuntimeManager = factory.Core().createTypeAccess();
-			accRuntimeManager.setType(runtimeManager);
+			CtTypeAccess<?> accRuntimeManager = factory.Code().createTypeAccess(runtimeManager);
 			CtExecutableReference createTaskRef = getExecutableReferenceOfMethodByName(runtimeManager, "createTask");
 
-			newFuture = factory.Core().createConstructorCall();
-			newFuture.setType(futureType);
+			newFuture = factory.Code().createConstructorCall(futureType);
 			newFuture.setArguments(element.getArguments());
 			CtInvocation<?> createTask = factory.Code().createInvocation(accRuntimeManager, createTaskRef, newFuture);
 			futureAssign = factory.Code().createLocalVariable(futureType2, id, createTask);
+			
 			setPermissionSet(createTask, new PermissionSet());
 			setPermissionSet(newFuture, new PermissionSet());
 			setPermissionSet(futureAssign, set.copy());
@@ -537,10 +542,8 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 			futureLambda.setParameters(futureLambdaParams);
 			// Fill in lambda missing
 			setPermissionSet(futureLambda, new PermissionSet());
-			newFuture = factory.Core().createConstructorCall();
+			newFuture = factory.Code().createConstructorCall(futureType, futureLambda);
 			setPermissionSet(newFuture, new PermissionSet());
-			newFuture.setType(futureType);
-			newFuture.addArgument(futureLambda);
 			
 			// If granularity
 			CtExpression save = newFuture;
@@ -555,8 +558,8 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 				setPermissionSet(conditional, set.copy());
 				setPermissionSet(conditional, new PermissionSet());
 			}
-			setPermissionSet(futureAssign, set.copy());
 			futureAssign = factory.Code().createLocalVariable(futureType, id, save);
+			setPermissionSet(futureAssign, set.copy());
 			futureAssign.updateAllParentsBelow();
 		}
 		// Create future.get()
@@ -635,11 +638,18 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		// Let's start with the current block;
 		CtStatement previousStatement = null; // NULL means the beginning.
 		List<CtVariableReference<?>> taskDeps = new ArrayList<CtVariableReference<?>>();
-
+		
+		if (counterTasks == 61) {
+			System.out.println("Trying to insert " +  futureAssign);
+			System.out.println("position: " + pos);
+		}
 		for (CtStatement stmt : block.getStatements()) {
+			if (counterTasks == 61) {
+				System.out.println("post try: " + stmt.getPosition() + " / " + stmt);
+			}
 			if (stmt == newElement)
 				break;
-			if (stmt.getPosition() != null && stmt.getPosition().getLine() >= pos.getLine())
+			if (stmt.getPosition() != null && stmt.getPosition().getLine() >= pos.getLine()) 
 				break;
 
 			List<CtVariableAccess> accesses = Query.getElements(element, new Filter<CtVariableAccess>() {
@@ -651,6 +661,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 					return false;
 				}
 			});
+			
 
 			// Hard requirement for local variables to be declared
 			if (stmt instanceof CtLocalVariable) {
@@ -700,6 +711,9 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 				}
 			}
 		}
+		if (counterTasks == 61) {
+			System.out.println("Result: " +  previousStatement);
+		}
 		for (CtVariableReference<?> ref : taskDeps) {
 			CtVariableAccess<?> readTask = factory.Code().createVariableRead(ref, false);
 			newFuture.addArgument(readTask);
@@ -730,6 +744,9 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 		}
 		setCost(futureAssign, new CostEstimation());
 		tasks.put(read, futureAssign.getReference());
+		
+		futureAssign.putMetadata(PARALLELIZED_KEY, true);
+		read.putMetadata(PARALLELIZED_KEY, true);
 
 		// Fix broken blocks
 		block.getParent().updateAllParentsBelow();
@@ -779,7 +796,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	private boolean isParent(CtElement parent, CtElement child) {
 		CtElement p = child.getParent();
 		while (p != null) {
-			if (p.equals(parent))
+			if (p == parent)
 				return true;
 			p = p.getParent();
 		}
@@ -945,7 +962,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	}
 
 	public void setCost(CtElement el, CostEstimation ce) {
-		costDatabase.put(el, ce);
+		el.putMetadata(CostEstimation.COST_MODEL_KEY, ce);
 	}
 
 	public void copyCost(CtElement from, CtElement to) {
@@ -954,7 +971,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 
 	public CostEstimation getCost(CtElement e) {
 		for (int i = 0; i < 2; i++) {
-			CostEstimation vars = costDatabase.get(e);
+			CostEstimation vars = (CostEstimation) e.getMetadata(CostEstimation.COST_MODEL_KEY);
 			if (vars != null)
 				return vars;
 			permFixer.scan(e.getParent());
@@ -964,7 +981,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 
 	public PermissionSet getPermissionSet(CtElement element) {
 		for (int i = 0; i < 2; i++) {
-			PermissionSet vars = permissionDatabase.get(element);
+			PermissionSet vars = (PermissionSet) element.getMetadata(PermissionSet.PERMISSION_MODEL_KEY);
 			if (vars != null)
 				return vars;
 			try {
@@ -978,7 +995,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	}
 
 	protected void setPermissionSet(CtElement e, PermissionSet s) {
-		permissionDatabase.put(e, s);
+		e.putMetadata(PermissionSet.PERMISSION_MODEL_KEY, s);
 	}
 
 	protected void copyPermissionSet(CtElement e, CtElement to) {
@@ -986,7 +1003,7 @@ public class TaskCreationProcessor extends AbstractProcessor<CtElement> {
 	}
 
 	protected boolean hasPermissionSet(CtElement el) {
-		return permissionDatabase.containsKey(el);
+		return el.getMetadata(PermissionSet.PERMISSION_MODEL_KEY) != null;
 	}
 
 }

@@ -1,7 +1,5 @@
 package aeminium.jparcompiler.processing.utils;
 
-import java.util.HashMap;
-
 import aeminium.jparcompiler.model.PermissionSet;
 import spoon.reflect.code.BinaryOperatorKind;
 import spoon.reflect.code.CtArrayAccess;
@@ -19,7 +17,6 @@ import spoon.reflect.reference.CtTypeReference;
 public class ForAnalyzer {
 	
 	CtFor element;
-	HashMap<CtElement, PermissionSet>  store;
 	
 	boolean valid = false;
 	
@@ -30,9 +27,8 @@ public class ForAnalyzer {
 	public PermissionSet vars;
 	
 	
-	public ForAnalyzer(CtFor forElement, HashMap<CtElement, PermissionSet>  store) {
+	public ForAnalyzer(CtFor forElement) {
 		this.element = forElement;
-		this.store = store;
 	}
 	
 	public boolean canBeAnalyzed() {
@@ -88,15 +84,15 @@ public class ForAnalyzer {
 			return;
 		// Now we know its postinc and we have the bottom and ceiling.
 
-		oldVars = store.get(element.getBody());
+		oldVars = (PermissionSet) element.getBody().getMetadata(PermissionSet.PERMISSION_MODEL_KEY);
 
 		// We have to remove the indexed writes and reads that are parallel
 		element.getElements((e) -> {
 			if (e instanceof CtArrayAccess) {
 				CtElement el = e;
 				while (el != element) {
-					if (store.containsKey(el)) {
-						boolean deleted = store.get(el).removeIf(
+					if (el.getMetadataKeys().contains(PermissionSet.PERMISSION_MODEL_KEY)) {
+						boolean deleted = ((PermissionSet) el.getMetadata(PermissionSet.PERMISSION_MODEL_KEY)).removeIf(
 								(p) -> p.index != null && p.index == v);
 						if (!deleted) {
 							break;
@@ -110,7 +106,7 @@ public class ForAnalyzer {
 			return false;
 		});
 		// Next, we evaluate for write permissions inside the cycle.
-		vars = store.get(element.getBody());
+		vars = (PermissionSet) element.getBody().getMetadata(PermissionSet.PERMISSION_MODEL_KEY);
 		//System.out.println("Permissions for  " + element.getPosition());
 		//vars.printSet();
 		valid = true;

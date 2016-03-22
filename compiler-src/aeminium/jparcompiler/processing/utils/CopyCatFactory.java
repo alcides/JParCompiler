@@ -64,27 +64,27 @@ public class CopyCatFactory extends CtAbstractVisitor {
 			CtAnonymousExecutable cat = (CtAnonymousExecutable) ccat;
 			cat.setBody( (CtBlock<Void>) clone(cat.getBody()) );
 		}
-		if (el instanceof CtArrayAccess) {
+		else if (el instanceof CtArrayAccess) {
 			CtArrayAccess cat = (CtArrayAccess) ccat;
 			cat.setIndexExpression((CtExpression) clone(cat.getIndexExpression()));
 			cat.setTarget((CtExpression) clone(cat.getTarget()));
 		}
-		if (el instanceof CtAssert) {
+		else if (el instanceof CtAssert) {
 			CtAssert cat = (CtAssert) ccat;
 			cat.setAssertExpression((CtExpression) clone(cat.getAssertExpression()));
 			cat.setExpression((CtExpression) clone(cat.getExpression()));
 		}
-		if (el instanceof CtAssignment) {
+		else if (el instanceof CtAssignment) {
 			CtAssignment cat = (CtAssignment) ccat;
 			cat.setAssigned((CtExpression) clone(cat.getAssigned()));
 			cat.setAssignment((CtExpression) clone(cat.getAssignment()));
 		}
-		if (el instanceof CtBinaryOperator) {
+		else if (el instanceof CtBinaryOperator) {
 			CtBinaryOperator cat = (CtBinaryOperator) ccat;
 			cat.setLeftHandOperand((CtExpression) clone(cat.getLeftHandOperand()));
 			cat.setRightHandOperand((CtExpression) clone(cat.getRightHandOperand()));
 		}
-		if (el instanceof CtBlock) {
+		else if (el instanceof CtBlock) {
 			CtBlock cat = (CtBlock) ccat;
 			List<CtStatement> list = new ArrayList<CtStatement>();
 			for (CtStatement ct : cat.getStatements()) {
@@ -92,7 +92,7 @@ public class CopyCatFactory extends CtAbstractVisitor {
 			}
 			cat.setStatements(list);
 		}
-		if (el instanceof CtCase) {
+		else if (el instanceof CtCase) {
 			CtCase cat = (CtCase) ccat;
 			cat.setCaseExpression((CtExpression) clone(cat.getCaseExpression()));
 			List<CtStatement> list = new ArrayList<CtStatement>();
@@ -101,11 +101,11 @@ public class CopyCatFactory extends CtAbstractVisitor {
 			}
 			cat.setStatements(list);
 		}
-		if (el instanceof CtCatch) {
+		else if (el instanceof CtCatch) {
 			CtCatch cat = (CtCatch) ccat;
 			cat.setBody((CtBlock<?>) clone(cat.getBody()));
 		}
-		if (el instanceof CtClass) {
+		else if (el instanceof CtClass) {
 			CtClass cat = (CtClass) ccat;
 			Set<Object> list = new HashSet<Object>();
 			for (Object ct : cat.getConstructors()) {
@@ -127,13 +127,13 @@ public class CopyCatFactory extends CtAbstractVisitor {
 			}
 			// Probably missing sth
 		}
-		if (el instanceof CtConditional) {
+		else if (el instanceof CtConditional) {
 			CtConditional cat = (CtConditional) ccat;
 			cat.setCondition((CtExpression) clone(cat.getCondition()));
 			cat.setThenExpression((CtExpression) clone(cat.getThenExpression()));
 			cat.setElseExpression((CtExpression) clone(cat.getElseExpression()));
 		}
-		if (el instanceof CtConstructor) {
+		else if (el instanceof CtConstructor) {
 			CtConstructor cat = (CtConstructor) ccat;
 			cat.setBody((CtBlock) clone(cat.getBody()));
 			
@@ -143,15 +143,15 @@ public class CopyCatFactory extends CtAbstractVisitor {
 			}
 			cat.setParameters(list);
 		}
-		if (el instanceof CtDo) {
+		else if (el instanceof CtDo) {
 			CtDo cat = (CtDo) ccat;
 			cat.setBody((CtStatement) clone(cat.getBody()));
 			cat.setLoopingExpression((CtExpression<Boolean>) clone(cat.getLoopingExpression()));
 		}
-		if (el instanceof CtEnum) {
+		else if (el instanceof CtEnum) {
 			// TODO
 		}
-		if (el instanceof CtExecutableReference) {
+		else if (el instanceof CtExecutableReference) {
 			CtExecutableReference cat = (CtExecutableReference) ccat;
 			List<Object> list = new ArrayList<Object>();
 			for (Object ct : cat.getParameters()) {
@@ -159,12 +159,12 @@ public class CopyCatFactory extends CtAbstractVisitor {
 			}
 			cat.setParameters(list);
 		}
-		if (el instanceof CtField) {
+		else if (el instanceof CtField) {
 			CtField cat = (CtField) ccat;
 			cat.setAssignment((CtExpression) clone(cat.getAssignment()));
 			cat.setDefaultExpression((CtExpression) clone(cat.getDefaultExpression()));
 		}
-		if (el instanceof CtFor) {
+		else if (el instanceof CtFor) {
 			CtFor cat = (CtFor) ccat;
 			cat.setBody((CtStatement) clone(cat.getBody()));
 			cat.setExpression((CtExpression<Boolean>) clone(cat.getExpression()));
@@ -179,19 +179,19 @@ public class CopyCatFactory extends CtAbstractVisitor {
 			}
 			cat.setForUpdate(list);
 		}
-		if (el instanceof CtForEach) {
+		else if (el instanceof CtForEach) {
 			CtForEach cat = (CtForEach) ccat;
 			cat.setBody((CtStatement) clone(cat.getBody()));
 			cat.setExpression((CtExpression<?>) clone(cat.getExpression()));
 			cat.setVariable((CtLocalVariable<?>) clone(cat.getVariable()));
 		}
-		if (el instanceof CtIf) {
+		else if (el instanceof CtIf) {
 			CtIf cat = (CtIf) ccat;
 			cat.setCondition((CtExpression<Boolean>) clone(cat.getCondition()));
 			cat.setThenStatement((CtStatement) clone(cat.getThenStatement()));
 			cat.setElseStatement((CtStatement) clone(cat.getElseStatement()));
 		}
-		if (el instanceof CtInterface) {
+		else if (el instanceof CtInterface) {
 			CtInterface cat = (CtInterface) ccat;
 			Set<Object> list = new HashSet<Object>();
 			for (Object ct : cat.getMethods()) {
@@ -208,7 +208,7 @@ public class CopyCatFactory extends CtAbstractVisitor {
 			}
 			// Probably missing sth
 		}
-		if (el instanceof CtInvocation) {
+		else if (el instanceof CtInvocation) {
 			CtInvocation cat = (CtInvocation) ccat;
 			List<Object> list = new ArrayList<Object>();
 			for (Object ct : cat.getArguments()) {
@@ -217,20 +217,20 @@ public class CopyCatFactory extends CtAbstractVisitor {
 			cat.setArguments(list);
 			cat.setTarget((CtExpression) clone(cat.getTarget()));
 		}
-		if (el instanceof CtLiteral) {
+		else if (el instanceof CtLiteral) {
 			//CtLiteral cat = (CtLiteral) ccat;
 			// value?
 		}
-		if (el instanceof CtLocalVariable) {
+		else if (el instanceof CtLocalVariable) {
 			CtLocalVariable cat = (CtLocalVariable) ccat;
 			cat.setAssignment((CtExpression) clone(cat.getAssignment()));
 			cat.setDefaultExpression((CtExpression) clone(cat.getDefaultExpression()));
 		}
-		if (el instanceof CtCatchVariable) {
+		else if (el instanceof CtCatchVariable) {
 			CtCatchVariable cat = (CtCatchVariable) ccat;
 			cat.setDefaultExpression((CtExpression) clone(cat.getDefaultExpression()));
 		}
-		if (el instanceof CtMethod) {
+		else if (el instanceof CtMethod) {
 			CtMethod cat = (CtMethod) ccat;
 			cat.setBody((CtBlock) clone(cat.getBody()));
 			List<CtTypeReference<?>> list = new ArrayList<CtTypeReference<?>>();
@@ -239,7 +239,7 @@ public class CopyCatFactory extends CtAbstractVisitor {
 			}
 			cat.setFormalTypeParameters(list);
 		}
-		if (el instanceof CtNewArray) {
+		else if (el instanceof CtNewArray) {
 			CtNewArray cat = (CtNewArray) ccat;
 			List<Object> list = new ArrayList<Object>();
 			for (Object ct : cat.getDimensionExpressions()) {
@@ -252,16 +252,7 @@ public class CopyCatFactory extends CtAbstractVisitor {
 			}
 			cat.setElements(list);
 		}
-		if (el instanceof CtConstructorCall) {
-			CtConstructorCall cat = (CtConstructorCall) ccat;
-			List<Object> list = new ArrayList<Object>();
-			for (Object ct : cat.getArguments()) {
-				list.add((Object) clone((CtElement) ct));
-			}
-			cat.setArguments(list);
-			cat.setTarget((CtExpression) clone(cat.getTarget()));
-		}
-		if (el instanceof CtLambda) {
+		else if (el instanceof CtLambda) {
 			CtLambda cat = (CtLambda) ccat;
 			if (cat.getBody() != null) cat.setBody((CtBlock) clone(cat.getBody()));
 			if (cat.getExpression() != null) cat.setExpression((CtExpression) clone(cat.getExpression()));
@@ -271,16 +262,27 @@ public class CopyCatFactory extends CtAbstractVisitor {
 			}
 			cat.setParameters(list);
 		}
-		if (el instanceof CtOperatorAssignment) {
+		else if (el instanceof CtConstructorCall) {
+			CtConstructorCall cat = (CtConstructorCall) ccat;
+			List<Object> list = new ArrayList<Object>();
+			for (Object ct : cat.getArguments()) {
+				list.add((Object) clone((CtElement) ct));
+			}
+			cat.setArguments(list);
+			if (cat.getType() == null) {
+				throw new RuntimeException("null constructor: " + el);
+			}
+		}
+		else if (el instanceof CtOperatorAssignment) {
 			CtOperatorAssignment cat = (CtOperatorAssignment) ccat;
 			cat.setAssigned((CtExpression) clone(cat.getAssigned()));
 			cat.setAssignment((CtExpression) clone(cat.getAssignment()));
 		}
-		if (el instanceof CtReturn) {
+		else if (el instanceof CtReturn) {
 			CtReturn cat = (CtReturn) ccat;
 			cat.setReturnedExpression((CtExpression) clone(cat.getReturnedExpression()));
 		}
-		if (el instanceof CtStatementList) {
+		else if (el instanceof CtStatementList) {
 			CtStatementList cat = (CtStatementList) ccat;
 			List<CtStatement> list = new ArrayList<CtStatement>();
 			for (CtStatement ct : cat.getStatements()) {
@@ -288,7 +290,7 @@ public class CopyCatFactory extends CtAbstractVisitor {
 			}
 			cat.setStatements(list);
 		}
-		if (el instanceof CtSwitch) {
+		else if (el instanceof CtSwitch) {
 			CtSwitch cat = (CtSwitch) ccat;
 			cat.setSelector((CtExpression) clone(cat.getSelector()));
 			List<Object> list = new ArrayList<Object>();
@@ -297,16 +299,16 @@ public class CopyCatFactory extends CtAbstractVisitor {
 			}
 			cat.setCases(list);
 		}
-		if (el instanceof CtSynchronized) {
+		else if (el instanceof CtSynchronized) {
 			CtSynchronized cat = (CtSynchronized) ccat;
 			cat.setExpression((CtExpression<?>) clone(cat.getExpression()));
 			cat.setBlock((CtBlock<?>) clone(cat.getBlock()));
 		}
-		if (el instanceof CtThrow) {
+		else if (el instanceof CtThrow) {
 			CtThrow cat = (CtThrow) ccat;
 			cat.setThrownExpression((CtExpression<? extends Throwable>) clone(cat.getThrownExpression()));
 		}
-		if (el instanceof CtTry) {
+		else if (el instanceof CtTry) {
 			CtTry cat = (CtTry) ccat;
 			cat.setBody((CtBlock<?>) clone(cat.getBody()));
 			cat.setFinalizer((CtBlock<?>) clone(cat.getFinalizer()));
@@ -316,7 +318,7 @@ public class CopyCatFactory extends CtAbstractVisitor {
 			}
 			cat.setCatchers(list);
 		}
-		if (el instanceof CtTryWithResource) {
+		else if (el instanceof CtTryWithResource) {
 			CtTryWithResource cat = (CtTryWithResource) ccat;
 			cat.setBody((CtBlock<?>) clone(cat.getBody()));
 			cat.setFinalizer((CtBlock<?>) clone(cat.getFinalizer()));
@@ -331,11 +333,11 @@ public class CopyCatFactory extends CtAbstractVisitor {
 			}
 			cat.setResources(list2);
 		}
-		if (el instanceof CtUnaryOperator) {
+		else if (el instanceof CtUnaryOperator) {
 			CtUnaryOperator cat = (CtUnaryOperator) ccat;
 			cat.setOperand((CtExpression<?>) clone(cat.getOperand()));
 		}
-		if (el instanceof CtWhile) {
+		else if (el instanceof CtWhile) {
 			CtWhile cat = (CtWhile) ccat;
 			cat.setBody((CtStatement) clone(cat.getBody()));
 			cat.setLoopingExpression((CtExpression<Boolean>) clone(cat.getLoopingExpression()));

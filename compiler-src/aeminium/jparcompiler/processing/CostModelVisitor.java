@@ -2,7 +2,6 @@ package aeminium.jparcompiler.processing;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Stack;
 
 import aeminium.jparcompiler.model.CostEstimation;
@@ -65,7 +64,6 @@ import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.visitor.CtAbstractVisitor;
 
 public class CostModelVisitor extends CtAbstractVisitor {
-	public HashMap<CtElement, CostEstimation> database = new HashMap<>();
 	Stack<CtElement> stackCheck = new Stack<CtElement>();
 	
 	CtLiteral<Integer> loopLiteral = null;
@@ -240,7 +238,7 @@ public class CostModelVisitor extends CtAbstractVisitor {
 		cbe.add(get(forLoop.getBody()));
 		
 		CtExpression k = createLoopLiteral();
-		ForAnalyzer fa = new ForAnalyzer(forLoop, AccessPermissionsProcessor.database);
+		ForAnalyzer fa = new ForAnalyzer(forLoop);
 		if ( fa.canBeAnalyzed() ) {
 			if (fa.st.toString().equals("0")) {
 				k = fa.end;
@@ -313,7 +311,7 @@ public class CostModelVisitor extends CtAbstractVisitor {
 					// Two times works best for recursive calls
 					// Once is done by using:
 					// !stackCheck.contains(ex)
-					if (!database.containsKey(ex)) {
+					if (ex.getMetadata(CostEstimation.COST_MODEL_KEY) == null) {
 						stackCheck.add(ex);
 						scan(ex);
 						stackCheck.pop();
@@ -540,11 +538,12 @@ public class CostModelVisitor extends CtAbstractVisitor {
 	// Helper Methods
 	
 	public CostEstimation get(CtElement e) {
-		return database.get(e);
+		return (CostEstimation) e.getMetadata(CostEstimation.COST_MODEL_KEY);
 	}
 	
 	public CostEstimation save(CtElement e, CostEstimation ce) {
-		return database.put(e, ce);
+		e.putMetadata(CostEstimation.COST_MODEL_KEY, ce);
+		return ce;
 	}
 	
 	public CostEstimation merge(CostEstimation e, CostEstimation e2) {
@@ -561,12 +560,12 @@ public class CostModelVisitor extends CtAbstractVisitor {
 	}
 	
 	public void saveCopyInto(CtElement e, CtElement ne) {
-		save(ne, copy(database.get(e)));
+		save(ne, copy((CostEstimation) e.getMetadata("cost")));
 	}
 	
 	public void saveCopyWithInto(CtElement e, CtElement e2, CtElement ne) {		
-		CostEstimation nc = copy(database.get(e));
-		nc.add(database.get(e));
+		CostEstimation nc = copy((CostEstimation) e.getMetadata(CostEstimation.COST_MODEL_KEY));
+		nc.add((CostEstimation) e2.getMetadata(CostEstimation.COST_MODEL_KEY));
 		save(ne, nc);
 	}
 	
