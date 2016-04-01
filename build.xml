@@ -91,11 +91,6 @@
 			<arg value="jar" />
 		</exec>
 		<copy file="../AeminiumRuntime/dist/AeminiumRuntime.jar" todir="${lib.dir}" />
-		
-		<exec executable="ant" dir="../AeminiumFutures/">
-			<arg value="jar" />
-		</exec>
-		<copy file="../AeminiumFutures/dist/AeminiumFutures.jar" todir="${lib.dir}" />
 	</target>
 
 	<target name="run" depends="fetchruntime, compile">
@@ -127,7 +122,6 @@
 	<target name="jar" depends="clean, compile">
 		<mkdir dir="${dist.dir}" />
 		<copy file="${lib.dir}/AeminiumRuntime.jar" todir="${dist.dir}" />
-		<copy file="${lib.dir}/AeminiumFutures.jar" todir="${dist.dir}" />
 		<jar destfile="${dist.dir}/JparCompilerExamples.jar">
 		   <fileset dir="${build.dir}/" />
 		   <!--<fileset dir="${spooned.dir}" />-->
