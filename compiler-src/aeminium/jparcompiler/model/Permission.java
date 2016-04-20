@@ -37,7 +37,7 @@ public class Permission {
 	public String toString() {
 		StringBuffer b = new StringBuffer();
 		b.append("P(");
-		b.append((target == null) ? "null" : target.getSignature());
+		b.append((target == null) ? "null" : target.toString());
 		b.append("," + target.getClass().getSimpleName());
 		b.append(",");
 		b.append(type);

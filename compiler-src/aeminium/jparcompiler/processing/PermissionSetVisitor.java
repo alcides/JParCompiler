@@ -684,7 +684,7 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 			setPermissionSet(fieldRead, set);
 			return;
 		}
-		if (fieldRead.getSignature().endsWith("#length")) {
+		if (fieldRead.getVariable().toString().equals("length")) {
 			set.add(new Permission(PermissionType.READ, fieldRead.getTarget()));
 			setPermissionSet(fieldRead, set);
 			return;
