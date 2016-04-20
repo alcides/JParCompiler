@@ -34,7 +34,8 @@ public class Safety {
 		CtClass<?> cl = el.getParent(CtClass.class);
 		
 		for (CtAnnotation<? extends Annotation> an : cl.getAnnotations()) {
-			if (an.getType().getQualifiedName().equals(Sequential.class.getCanonicalName())) {
+			String t = (an.getType() == null) ? an.toString().trim().substring(1) : an.getType().getQualifiedName(); 
+			if (t.equals(Sequential.class.getCanonicalName())) {
 				return true;
 			}
 		}
