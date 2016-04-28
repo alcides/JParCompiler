@@ -44,7 +44,7 @@
 		<javac srcdir="${compiler.src.dir}" destdir="${compiler.build.dir}" classpathref="compiler.classpath" debug="true" />
 	</target>
 
-	<target name="precompile" depends="compile-compiler">
+	<target name="precompile_old" depends="compile-compiler">
 		<!-- define spoon task -->
 		<taskdef name="spoon" classname="spoon.SpoonTask" classpathref="compiler.classpath" />
 
@@ -58,6 +58,21 @@
 		</spoon>
 		<delete dir="${spooned.dir}/aeminium/jparcompiler"/>
 	</target>
+	
+	<target name="precompile" depends="compile-compiler">
+		<java fork="true" classname="aeminium.jparcompiler.launchers.JParLauncher">
+			<arg value="-i" />
+			<arg value="src" />
+			<arg value="-o" />
+			<arg value="spooned" />
+			<classpath>
+				<path location="${compiler.build.dir}" />
+				<path refid="classpath" />
+				<path refid="compiler.classpath" />
+			</classpath>
+		</java>
+		<delete dir="${spooned.dir}/aeminium/jparcompiler"/>
+		</target>
 
 	<target name="compile" depends="precompile">
 		<mkdir dir="${build.dir}" />
