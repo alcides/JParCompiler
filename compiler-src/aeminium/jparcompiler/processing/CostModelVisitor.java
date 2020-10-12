@@ -236,7 +236,6 @@ public class CostModelVisitor extends CtAbstractVisitor {
 		}
 		scan(forLoop.getBody());
 		cbe.add(get(forLoop.getBody()));
-		
 		CtExpression k = createLoopLiteral();
 		ForAnalyzer fa = new ForAnalyzer(forLoop);
 		if ( fa.canBeAnalyzed() ) {
@@ -538,6 +537,7 @@ public class CostModelVisitor extends CtAbstractVisitor {
 	// Helper Methods
 	
 	public CostEstimation get(CtElement e) {
+		if (e == null) return new CostEstimation(); // TODO: FIXME
 		return (CostEstimation) e.getMetadata(CostEstimation.COST_MODEL_KEY);
 	}
 	

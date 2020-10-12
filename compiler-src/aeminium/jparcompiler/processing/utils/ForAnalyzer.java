@@ -43,7 +43,11 @@ public class ForAnalyzer {
 			return;
 		
 		// Get Variable
-		CtLocalVariable<?> v = (CtLocalVariable<?>) element.getForInit().get(0);
+		CtStatement def = element.getForInit().get(0);
+		if (!(def instanceof CtLocalVariable)) {
+			return;
+		}
+		CtLocalVariable<?> v = (CtLocalVariable<?>) def;
 		st = v.getAssignment();
 		type = v.getType();
 
@@ -85,30 +89,31 @@ public class ForAnalyzer {
 		// Now we know its postinc and we have the bottom and ceiling.
 
 		oldVars = (PermissionSet) element.getBody().getMetadata(PermissionSet.PERMISSION_MODEL_KEY);
-
-		// We have to remove the indexed writes and reads that are parallel
-		element.getElements((e) -> {
-			if (e instanceof CtArrayAccess) {
-				CtElement el = e;
-				while (el != element) {
-					if (el.getMetadataKeys().contains(PermissionSet.PERMISSION_MODEL_KEY)) {
-						boolean deleted = ((PermissionSet) el.getMetadata(PermissionSet.PERMISSION_MODEL_KEY)).removeIf(
-								(p) -> p.index != null && p.index == v);
-						if (!deleted) {
-							break;
+		if (oldVars != null) {
+			// We have to remove the indexed writes and reads that are parallel
+			element.getElements((e) -> {
+				if (e instanceof CtArrayAccess) {
+					CtElement el = e;
+					while (el != element) {
+						if (el.getMetadataKeys().contains(PermissionSet.PERMISSION_MODEL_KEY)) {
+							boolean deleted = ((PermissionSet) el.getMetadata(PermissionSet.PERMISSION_MODEL_KEY)).removeIf(
+									(p) -> p.index != null && p.index == v);
+							if (!deleted) {
+								break;
+							}
+						} else {
+							//System.out.println("Fail in " + el + ", " + el.getPosition());
 						}
-					} else {
-						System.out.println("Fail in " + el + ", " + el.getPosition());
+						el = el.getParent();
 					}
-					el = el.getParent();
 				}
-			}
-			return false;
-		});
-		// Next, we evaluate for write permissions inside the cycle.
-		vars = (PermissionSet) element.getBody().getMetadata(PermissionSet.PERMISSION_MODEL_KEY);
-		//System.out.println("Permissions for  " + element.getPosition());
-		//vars.printSet();
+				return false;
+			});
+			// Next, we evaluate for write permissions inside the cycle.
+			vars = (PermissionSet) element.getBody().getMetadata(PermissionSet.PERMISSION_MODEL_KEY);
+			//System.out.println("Permissions for  " + element.getPosition());
+			//vars.printSet();
+		}
 		valid = true;
 	}
 	

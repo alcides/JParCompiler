@@ -72,7 +72,7 @@
 			</classpath>
 		</java>
 		<delete dir="${spooned.dir}/aeminium/jparcompiler"/>
-		</target>
+	</target>
 
 	<target name="compile" depends="precompile">
 		<mkdir dir="${build.dir}" />
@@ -150,4 +150,21 @@
 		</jar>
 	</target>
 
+	<target name="analyze" depends="compile-compiler">
+		<mkdir dir="tmp" />
+		<java fork="true" classname="aeminium.jparcompiler.launchers.GranularityDeciderLauncher">
+			<arg value="-i" />
+			<arg value="/Users/alcides/Code/Research/AeminiumBenchmarks/src/" />
+			<arg value="-o" />
+			<arg value="tmp" />
+			<arg value="-x" />
+			<classpath>
+				<path location="${compiler.build.dir}" />
+				<path refid="classpath" />
+				<path refid="compiler.classpath" />
+			</classpath>
+		</java>
+		<delete dir="tmp"/>
+	</target>
+	
 </project>

@@ -85,7 +85,8 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 	
 	public PermissionSet getPermissionSet(CtElement e) {
 		if (e == null) {
-			throw new RuntimeException("Null pointer: " + e);
+			return new PermissionSet();
+			//throw new RuntimeException("Null pointer: " + e); HACK PARA O ANALYZER
 		}
 		return (PermissionSet) e.getMetadata(PermissionSet.PERMISSION_MODEL_KEY);
 	}
@@ -124,6 +125,7 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 			}
 			e.accept(this);
 			if (getPermissionSet(e) == null) {
+				// Hack for analyzer
 				System.out.println("did not process: " + e + ", " + e.getClass());
 			}
 		}
@@ -466,6 +468,7 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 	}
 
 	public <T> void visitCtMethod(CtMethod<T> m) {
+		if (m == null || m.getParent(CtClass.class) == null) return; // TODO: FIXME
 		if (m.getParent(CtClass.class).getAnnotation(NoVisit.class) != null) return;
 		scan(m.getBody());
 		PermissionSet set = getPermissionSet(m.getBody());
@@ -729,7 +732,7 @@ public class PermissionSetVisitor extends CtAbstractVisitor {
 
 	@Override
 	public <T> void visitCtSuperAccess(CtSuperAccess<T> f) {
-		throw new RuntimeException("Found super access " + f);
+		//throw new RuntimeException("Found super access " + f);
 	}
 	
 	private Permission createControlPermission(CtElement ifElement) {

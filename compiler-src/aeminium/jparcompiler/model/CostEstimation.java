@@ -35,6 +35,7 @@ public class CostEstimation {
 	}
 	
 	public void add(CostEstimation other) {
+		if (other == null) return;
 		this.instructions += other.instructions;
 		for (String k : other.dependencies.keySet()) {
 			this.add(k, other.dependencies.get(k));

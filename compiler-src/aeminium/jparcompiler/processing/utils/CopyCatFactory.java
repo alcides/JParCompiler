@@ -311,7 +311,8 @@ public class CopyCatFactory extends CtAbstractVisitor {
 		else if (el instanceof CtTry) {
 			CtTry cat = (CtTry) ccat;
 			cat.setBody((CtBlock<?>) clone(cat.getBody()));
-			cat.setFinalizer((CtBlock<?>) clone(cat.getFinalizer()));
+			if (cat.getFinalizer() != null)
+				cat.setFinalizer((CtBlock<?>) clone(cat.getFinalizer()));
 			List<CtCatch> list = new ArrayList<CtCatch>();
 			for (Object ct : cat.getCatchers()) {
 				list.add((CtCatch) clone((CtElement) ct));

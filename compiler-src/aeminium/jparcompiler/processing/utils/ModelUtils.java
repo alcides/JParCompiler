@@ -19,19 +19,19 @@ import spoon.reflect.visitor.Filter;
 public class ModelUtils {
 
 	public static CtExpression<?> model(CtExpression<?> expr) {
-		CtExpression<?> ne = (CtExpression<?>) CopyCatFactory.clone(expr);
-
+		final CtExpression<?> ne = (CtExpression<?>) CopyCatFactory.clone(expr);
+		
 		ne.getElements(new Filter<CtVariableRead<?>>() {
 			@Override
 			public boolean matches(CtVariableRead<?> element) {
-				replaceLocalVarByDefaults(expr, element);
+				replaceLocalVarByDefaults(ne, element);
 				return false;
 			}
 		});
-
-		if (expr instanceof CtVariableRead) {
-			ne = replaceLocalVarByDefaults(expr, (CtVariableRead<?>) expr);
-		}
+		// TODO: Removed for analyzer
+		/*if (expr instanceof CtVariableRead) {
+			return replaceLocalVarByDefaults(ne, (CtVariableRead<?>) ne);
+		}*/
 		return ne;
 	}
 
@@ -170,15 +170,19 @@ public class ModelUtils {
 		nIndex.getElements(new Filter<CtThisAccess>() {
 			@Override
 			public boolean matches(CtThisAccess element) {
+				CtElement p = element.getParent();
 				element.replace(target);
+				p.updateAllParentsBelow();
 				return false;
 			}
 		});
 		nIndex.getElements(new Filter<CtFieldAccess<?>>() {
 			@Override
 			public boolean matches(CtFieldAccess<?> element) {
-				if (element.getTarget() == null)
+				if (element.getTarget() == null) {
 					element.setTarget(target);
+					element.updateAllParentsBelow();
+				}
 				return false;
 			}
 		});
@@ -187,6 +191,7 @@ public class ModelUtils {
 			public boolean matches(CtInvocation<?> element) {
 				if (element.getTarget() == null && !element.getExecutable().isStatic()) {
 					element.setTarget(target);
+					element.updateAllParentsBelow();
 				}
 				return false;
 			}
